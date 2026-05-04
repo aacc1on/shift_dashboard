@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-GUARD // SHIFT COMMAND CENTER</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <!-- Scanline overlay -->
+  <div class="scanlines"></div>
+  <!-- Grid background -->
+  <div class="grid-bg"></div>
+
+  <!-- HEADER -->
+  <header class="hdr">
+    <div class="hdr-left">
+      <span class="hdr-badge">SYS:ONLINE</span>
+      <span class="hdr-badge green">SEC:LVL3</span>
+    </div>
+    <div class="hdr-title">
+      <div class="logo-line">E<span class="dash">-</span>GUARD</div>
+      <div class="sub-logo">// SHIFT COMMAND CENTER //</div>
+    </div>
+    <div class="hdr-right">
+      <span class="hdr-badge" id="live-clock">--:--:--</span>
+      <span class="hdr-badge orange">ARM/UTC+4</span>
+    </div>
+  </header>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <span class="blink-dot"></span>
+    <span id="status-txt">INITIALIZING FEED...</span>
+    <span style="margin-left:auto; font-size:0.7rem; opacity:0.5;">AUTO-REFRESH: 1s</span>
+  </div>
+
+  <!-- CURRENTLY ON DUTY -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-icon">▶</span> PERSONNEL ON DUTY
+      <span class="section-line"></span>
+    </div>
+    <div class="cards-grid" id="cards-grid">
+      <!-- Filled by JS -->
+    </div>
+  </section>
+
+  <!-- FULL SCHEDULE TABLE -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-icon">▶</span> SCHEDULE MATRIX
+      <span class="section-line"></span>
+    </div>
+    <div class="table-wrap">
+      <table class="sched-table">
+        <thead>
+          <tr>
+            <th>OPERATOR</th>
+            <% const dates = Object.keys(<%- JSON.stringify(schedule) %>); %>
+            <% dates.forEach(d => { %>
+              <th><%= d.slice(5) %></th>
+            <% }); %>
+          </tr>
+        </thead>
+        <tbody>
+          <% people.forEach(person => { %>
+          <tr>
+            <td class="person-cell"><%= person.toUpperCase() %></td>
+            <% dates.forEach(d => {
+                const code = schedule[d] && schedule[d][person] ? schedule[d][person] : 'X';
+                const info = shiftTimes[code] || shiftTimes['X'];
+            %>
+            <td class="shift-cell" style="--sc: <%= info.color %>">
+              <span class="shift-badge" style="color:<%= info.color %>; border-color:<%= info.color %>40">
+                <%= code === 'Ardzakurd' ? 'ARZ' : code %>
+              </span>
+            </td>
+            <% }); %>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- LEGEND -->
+  <section class="section legend-section">
+    <div class="legend">
+      <div class="legend-item"><span class="leg-dot" style="background:#00ff88"></span> D — Day 09:00–17:00</div>
+      <div class="legend-item"><span class="leg-dot" style="background:#ffcc00"></span> E — Evening 17:00–01:00</div>
+      <div class="legend-item"><span class="leg-dot" style="background:#ff6b35"></span> N — Night 01:00–09:00</div>
+      <div class="legend-item"><span class="leg-dot" style="background:#4a9eff"></span> X — Day Off</div>
+      <div class="legend-item"><span class="leg-dot" style="background:#a855f7"></span> ARZ — Ardzakurd</div>
+    </div>
+  </section>
+
+  <!-- CARD TEMPLATE (hidden) -->
+  <template id="card-tpl">
+    <div class="person-card" data-person="">
+      <div class="card-header">
+        <span class="card-name"></span>
+        <span class="card-badge"></span>
+      </div>
+      <div class="card-shift-label"></div>
+      <div class="card-progress-wrap">
+        <div class="card-progress-bar">
+          <div class="card-progress-fill"></div>
+          <div class="card-progress-glow"></div>
+        </div>
+        <div class="card-pct"></div>
+      </div>
+      <div class="card-times">
+        <span class="card-elapsed"></span>
+        <span class="card-remaining"></span>
+      </div>
+      <div class="card-next"></div>
+    </div>
+  </template>
+
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>
