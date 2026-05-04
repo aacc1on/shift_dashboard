@@ -59,7 +59,7 @@
         <thead>
           <tr>
             <th>OPERATOR</th>
-            <% const dates = Object.keys(<%- JSON.stringify(schedule) %>); %>
+            <% const dates = Object.keys(schedule).sort(); %>
             <% dates.forEach(d => { %>
               <th><%= d.slice(5) %></th>
             <% }); %>
@@ -75,7 +75,7 @@
             %>
             <td class="shift-cell" style="--sc: <%= info.color %>">
               <span class="shift-badge" style="color:<%= info.color %>; border-color:<%= info.color %>40">
-                <%= code === 'Ardzakurd' ? 'ARZ' : code %>
+                <%= code %>
               </span>
             </td>
             <% }); %>
@@ -93,7 +93,6 @@
       <div class="legend-item"><span class="leg-dot" style="background:#ffcc00"></span> E — Evening 17:00–01:00</div>
       <div class="legend-item"><span class="leg-dot" style="background:#ff6b35"></span> N — Night 01:00–09:00</div>
       <div class="legend-item"><span class="leg-dot" style="background:#4a9eff"></span> X — Day Off</div>
-      <div class="legend-item"><span class="leg-dot" style="background:#a855f7"></span> ARZ — Ardzakurd</div>
     </div>
   </section>
 
@@ -119,6 +118,10 @@
       <div class="card-next"></div>
     </div>
   </template>
+
+  <section class="section">
+    <a class="hdr-badge green" href="/admin">OPEN ADMIN PANEL</a>
+  </section>
 
   <script src="/js/dashboard.js"></script>
 </body>
