@@ -315,3 +315,10 @@ body {
   .section { padding: 20px 16px; }
   .logo-line { font-size: 1.4rem; }
 }
+
+.admin-panel { border: 1px solid var(--border2); padding: 14px; background: rgba(8,20,32,0.7); }
+.admin-tools { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.admin-tools input, .admin-tools button, #admin-table select { background: #081420; color: var(--text); border: 1px solid var(--border2); padding: 6px 10px; font-family: var(--font-mono); }
+.admin-tools button { cursor: pointer; }
+#admin-table select { width: 68px; text-align: center; }
+.big-timer { font-family: var(--font-head); font-size: 1rem; margin-bottom: 8px; }
