@@ -1,0 +1,14 @@
+{
+  "system": "SOC",
+  "people": ["Areg", "Minas", "Rubik", "Levon", "Hrach", "Arshak"],
+  "dates": ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10"],
+  "schedule": {
+    "2026-05-04": { "Areg": "X", "Minas": "N", "Rubik": "X", "Levon": "D", "Hrach": "E", "Arshak": "N" },
+    "2026-05-05": { "Areg": "D", "Minas": "X", "Rubik": "N", "Levon": "E", "Hrach": "N", "Arshak": "X" },
+    "2026-05-06": { "Areg": "E", "Minas": "D", "Rubik": "N", "Levon": "E", "Hrach": "X", "Arshak": "N" },
+    "2026-05-07": { "Areg": "E", "Minas": "D", "Rubik": "X", "Levon": "N", "Hrach": "D", "Arshak": "N" },
+    "2026-05-08": { "Areg": "X", "Minas": "N", "Rubik": "D", "Levon": "N", "Hrach": "E", "Arshak": "X" },
+    "2026-05-09": { "Areg": "N", "Minas": "X", "Rubik": "D", "Levon": "X", "Hrach": "N", "Arshak": "E" },
+    "2026-05-10": { "Areg": "N", "Minas": "D", "Rubik": "N", "Levon": "X", "Hrach": "X", "Arshak": "E" }
+  }
+}

@@ -321,4 +321,9 @@ body {
 .admin-tools input, .admin-tools button, #admin-table select { background: #081420; color: var(--text); border: 1px solid var(--border2); padding: 6px 10px; font-family: var(--font-mono); }
 .admin-tools button { cursor: pointer; }
 #admin-table select { width: 68px; text-align: center; }
+.date-header, .person-row { display: inline-flex; align-items: center; gap: 8px; }
+.date-header input, .person-row input { min-width: 120px; border: 1px solid var(--border2); padding: 6px 10px; background: #081420; color: var(--text); }
+.remove-date-btn, .remove-person-btn { background: transparent; border: 1px solid var(--border2); color: var(--text); width: 26px; height: 26px; border-radius: 4px; cursor: pointer; }
+.remove-date-btn:hover, .remove-person-btn:hover { border-color: var(--orange); color: var(--orange); }
+.admin-feedback { margin-top: 14px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--green); }
 .big-timer { font-family: var(--font-head); font-size: 1rem; margin-bottom: 8px; }

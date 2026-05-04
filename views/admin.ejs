@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOC // ADMIN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="scanlines"></div>
+  <div class="grid-bg"></div>
+
+  <header class="hdr">
+    <div class="hdr-left">
+      <span class="hdr-badge">SYS:ADMIN</span>
+      <span class="hdr-badge orange">ACCESS:SECURE</span>
+    </div>
+    <div class="hdr-title">
+      <div class="logo-line">SOC</div>
+      <div class="sub-logo">// ADMIN CONTROL PANEL //</div>
+    </div>
+    <div class="hdr-right">
+      <a class="hdr-badge green" href="/">MAIN DASHBOARD</a>
+      <span class="hdr-badge" id="live-clock">--:--:--</span>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="section-header">
+      <span class="section-icon">▶</span> EDIT OPERATORS AND SCHEDULE
+      <span class="section-line"></span>
+    </div>
+
+    <div class="admin-panel">
+      <div class="admin-tools">
+        <input id="new-person" type="text" placeholder="New operator name" />
+        <button id="add-person-btn" type="button">Add Operator</button>
+        <input id="new-date" type="date" />
+        <button id="add-date-btn" type="button">Add Date</button>
+        <button id="save-admin-btn" type="button">Save Changes</button>
+      </div>
+      <div class="table-wrap">
+        <table class="sched-table" id="admin-table"></table>
+      </div>
+      <div class="admin-feedback" id="admin-feedback"></div>
+    </div>
+  </section>
+
+  <script>window.SOC_INIT = { people: <%- JSON.stringify(people) %>, dates: <%- JSON.stringify(dates) %>, schedule: <%- JSON.stringify(schedule) %> };</script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

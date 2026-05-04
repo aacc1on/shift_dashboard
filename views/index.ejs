@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>E-GUARD // SHIFT COMMAND CENTER</title>
+  <title>SOC // SHIFT COMMAND CENTER</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
@@ -21,12 +21,12 @@
       <span class="hdr-badge green">SEC:LVL3</span>
     </div>
     <div class="hdr-title">
-      <div class="logo-line">E<span class="dash">-</span>GUARD</div>
+      <div class="logo-line">SOC</div>
       <div class="sub-logo">// SHIFT COMMAND CENTER //</div>
     </div>
     <div class="hdr-right">
+      <a class="hdr-badge green" href="/admin">ADMIN PANEL</a>
       <span class="hdr-badge" id="live-clock">--:--:--</span>
-      <span class="hdr-badge orange">ARM/UTC+4</span>
     </div>
   </header>
 
@@ -121,24 +121,7 @@
 
   
 
-  <!-- ADMIN PANEL -->
-  <section class="section">
-    <div class="section-header">
-      <span class="section-icon">▶</span> ADMIN PANEL
-      <span class="section-line"></span>
-    </div>
-    <div class="admin-panel">
-      <div class="admin-tools">
-        <input id="new-person" type="text" placeholder="Add operator name" />
-        <button id="add-person-btn" type="button">Add Name</button>
-        <button id="save-admin-btn" type="button">Save Weekly Schedule</button>
-      </div>
-      <div class="table-wrap">
-        <table class="sched-table" id="admin-table"></table>
-      </div>
-    </div>
-  </section>
-
+  <script>window.SOC_DATA = { people: <%- JSON.stringify(people) %> };</script>
   <script src="/js/dashboard.js"></script>
 </body>
 </html>
