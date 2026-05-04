@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shift Admin Panel</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <section class="section">
+    <div class="section-header"><span class="section-icon">▶</span> ADMIN SCHEDULE EDITOR <span class="section-line"></span></div>
+    <div class="admin-panel">
+      <div class="admin-tools">
+        <input id="new-person" type="text" placeholder="Add operator name" />
+        <button id="add-person-btn" type="button">Add Name</button>
+        <input id="start-date" type="date" />
+        <input id="days-count" type="number" min="1" max="31" value="7" />
+        <button id="apply-dates-btn" type="button">Apply Dates</button>
+        <button id="save-admin-btn" type="button">Save</button>
+      </div>
+      <div class="table-wrap"><table class="sched-table" id="admin-table"></table></div>
+    </div>
+  </section>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
