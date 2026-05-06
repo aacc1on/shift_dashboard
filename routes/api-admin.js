@@ -1,9 +1,13 @@
 'use strict';
 
 const express = require('express');
+const fs = require('fs').promises;
+const path = require('path');
 const router = express.Router();
 const store = require('../data-store');
 const { requireAuth } = require('../middleware/auth');
+
+const AUDIT_LOG_PATH = path.join(__dirname, '..', 'audit.log');
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -43,6 +47,8 @@ router.post('/', async (req, res) => {
 
   try {
     const saved = await store.save({ people, dates, schedule: payload.schedule });
+    const who = req.authUser || 'admin';
+    await fs.appendFile(AUDIT_LOG_PATH, `[${new Date().toISOString()}] ${who} saved schedule — ${people.length} operators, ${dates.length} dates\n`);
     res.json({ ok: true, system: saved.system });
   } catch (error) {
     res.status(500).json({ error: 'Unable to save admin changes.' });

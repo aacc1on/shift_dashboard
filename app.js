@@ -8,6 +8,8 @@ const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
 const apiDashboardRoutes = require('./routes/api-dashboard');
 const apiAdminRoutes = require('./routes/api-admin');
+const apiSwapsRoutes = require('./routes/api-swaps');
+const apiExportRoutes = require('./routes/api-export');
 const { handleLogin, handleLogout } = require('./middleware/auth');
 
 const app = express();
@@ -34,6 +36,8 @@ app.use('/', dashboardRoutes);
 app.use('/admin', adminRoutes);
 app.use('/api/dashboard', apiDashboardRoutes);
 app.use('/api/admin', apiAdminRoutes);
+app.use('/api/swaps', apiSwapsRoutes);
+app.use('/api/export', apiExportRoutes);
 
 app.use((req, res) => {
   res.status(404).send('Not Found');

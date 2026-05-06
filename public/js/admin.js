@@ -211,6 +211,7 @@ async function initialize() {
   refreshTable();
   bindAdminActions();
   setFeedback('Admin panel ready.');
+  await loadPendingSwaps();
 
   const clockEl = document.getElementById('live-clock');
   const tick = () => clockEl.textContent = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Yerevan', hour12: false });
@@ -218,3 +219,26 @@ async function initialize() {
 }
 
 initialize().catch((err) => setFeedback(err.message, 'error'));
+async function loadPendingSwaps() {
+  const box = document.getElementById('pending-swaps');
+  if (!box) return;
+  try {
+    const res = await fetch('/api/swaps');
+    const swaps = await res.json();
+    const pending = swaps.filter((s) => s.status === 'pending');
+    if (!pending.length) {
+      box.innerHTML = '<span style="opacity:.5">No pending swaps</span>';
+      return;
+    }
+    box.innerHTML = pending.map((s) => `<div style="border:1px solid var(--border);padding:6px;margin-bottom:6px;">${s.requester} ${s.date} ${s.fromCode}→${s.wantCode}<div style="margin-top:4px;"><button class="admin-btn" data-swap-act="approve" data-swap-id="${s.id}" type="button">Approve</button><button class="admin-btn danger" data-swap-act="reject" data-swap-id="${s.id}" type="button">Reject</button></div></div>`).join('');
+    box.querySelectorAll('[data-swap-id]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        await fetch(`/api/swaps/${btn.dataset.swapId}/${btn.dataset.swapAct}`, { method: 'POST' });
+        await loadPendingSwaps();
+        setFeedback(`Swap ${btn.dataset.swapAct}d.`);
+      });
+    });
+  } catch {
+    box.innerHTML = '<span style="color:var(--red)">Failed to load swaps</span>';
+  }
+}

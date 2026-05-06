@@ -4,144 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SOC // SHIFT COMMAND CENTER</title>
+  <script>if(localStorage.getItem('soc_theme')==='light'){document.documentElement.classList.add('prelight');document.addEventListener('DOMContentLoaded',()=>document.body.classList.add('light'));}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <div class="scanlines"></div>
-  <div class="grid-bg"></div>
-
-  <!-- HEADER -->
-  <header class="hdr">
-    <div class="hdr-left">
-      <span class="hdr-badge">SYS:ONLINE</span>
-      <span class="hdr-badge green">SEC:LVL3</span>
-    </div>
-    <div class="hdr-title">
-      <div class="logo-line">SOC</div>
-      <div class="sub-logo">// SHIFT COMMAND CENTER //</div>
-    </div>
-    <div class="hdr-right">
-      <a class="hdr-badge green" href="/admin">⚙ ADMIN</a>
-      <span class="hdr-badge" id="live-clock">--:--:--</span>
-    </div>
-  </header>
-
-  <!-- STATUS BAR -->
-  <div class="status-bar">
-    <span class="blink-dot"></span>
-    <span id="status-txt">INITIALIZING FEED...</span>
-    <span style="margin-left:auto; font-size:0.65rem; opacity:0.4; font-family:var(--font-mono);">SYNC: 1s</span>
-  </div>
-
-  <!-- STATS ROW -->
-  <div class="stats-row" id="stats-row">
-    <div class="stat-cell">
-      <div class="stat-label">// ON DUTY</div>
-      <div class="stat-value green" id="stat-on">–</div>
-    </div>
-    <div class="stat-cell">
-      <div class="stat-label">// DAY SHIFT</div>
-      <div class="stat-value green" id="stat-day">–</div>
-    </div>
-    <div class="stat-cell">
-      <div class="stat-label">// EVENING SHIFT</div>
-      <div class="stat-value yellow" id="stat-eve">–</div>
-    </div>
-    <div class="stat-cell">
-      <div class="stat-label">// NIGHT SHIFT</div>
-      <div class="stat-value orange" id="stat-night">–</div>
-    </div>
-  </div>
-
-  <!-- PERSONNEL CARDS -->
-  <section class="section">
-    <div class="section-header">
-      <span class="section-icon">▶</span> PERSONNEL ON DUTY
-      <span class="section-line"></span>
-      <span class="section-count" id="duty-count">0 / <%= people.length %></span>
-    </div>
-    <div class="cards-grid" id="cards-grid"></div>
-  </section>
-
-  <!-- SCHEDULE TABLE -->
-  <section class="section">
-    <div class="section-header">
-      <span class="section-icon">▶</span> SCHEDULE MATRIX
-      <span class="section-line"></span>
-    </div>
-    <div class="table-wrap">
-      <table class="sched-table">
-        <thead>
-          <tr>
-            <th>OPERATOR</th>
-            <% const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Yerevan' }); %>
-            <% const sortedDates = Object.keys(schedule).sort(); %>
-            <% sortedDates.forEach(d => { %>
-              <th class="<%= d === today ? 'today-col' : '' %>">
-                <%= d.slice(5) %><%= d === today ? ' ◈' : '' %>
-              </th>
-            <% }); %>
-          </tr>
-        </thead>
-        <tbody>
-          <% people.forEach(person => { %>
-          <tr>
-            <td class="person-cell"><%= person.toUpperCase() %></td>
-            <% sortedDates.forEach(d => {
-                const code = schedule[d] && schedule[d][person] ? schedule[d][person] : 'X';
-                const info = shiftTimes[code] || shiftTimes['X'];
-            %>
-            <td class="shift-cell <%= d === today ? 'today-col' : '' %>">
-              <span class="shift-badge" style="color:<%= info.color %>; border-color:<%= info.color %>40">
-                <%= code %>
-              </span>
-            </td>
-            <% }); %>
-          </tr>
-          <% }); %>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- LEGEND -->
-  <section class="section" style="padding-top:0">
-    <div class="legend">
-      <div class="legend-item"><span class="leg-dot" style="background:#00ff88"></span> D — Day &nbsp;&nbsp;09:00–17:00</div>
-      <div class="legend-item"><span class="leg-dot" style="background:#ffcc00"></span> E — Evening 17:00–01:00</div>
-      <div class="legend-item"><span class="leg-dot" style="background:#ff6b35"></span> N — Night &nbsp;01:00–09:00</div>
-      <div class="legend-item"><span class="leg-dot" style="background:#4a9eff"></span> X — Day Off</div>
-      <div style="margin-left:auto; font-family:var(--font-mono); font-size:0.58rem; color:var(--text-dim); opacity:0.5;">◈ = TODAY</div>
-    </div>
-  </section>
-
-  <!-- CARD TEMPLATE -->
-  <template id="card-tpl">
-    <div class="person-card" data-person="">
-      <div class="card-header">
-        <span class="card-name"></span>
-        <span class="card-badge"></span>
-      </div>
-      <div class="card-shift-label"></div>
-      <div class="big-timer"></div>
-      <div class="card-progress-wrap">
-        <div class="card-progress-bar">
-          <div class="card-progress-fill"></div>
-          <div class="card-progress-glow"></div>
-        </div>
-        <div class="card-pct"></div>
-      </div>
-      <div class="card-times">
-        <span class="card-elapsed"></span>
-        <span class="card-remaining"></span>
-      </div>
-      <div class="card-next"></div>
-    </div>
-  </template>
-
-  <script>window.SOC_DATA = { people: <%- JSON.stringify(people) %> };</script>
-  <script src="/js/dashboard.js"></script>
-</body>
-</html>
+<div class="scanlines"></div><div class="grid-bg"></div>
+<header class="hdr"><div class="hdr-left"><span class="hdr-badge">SYS:ONLINE</span><span class="hdr-badge green">SEC:LVL3</span></div><div class="hdr-title"><div class="logo-line">SOC</div><div class="sub-logo">// SHIFT COMMAND CENTER //</div></div><div class="hdr-right"><button class="hdr-badge" id="theme-toggle" type="button">☀/🌙</button><a class="hdr-badge green" href="/admin">⚙ ADMIN</a><span class="hdr-badge" id="live-clock">--:--:--</span></div></header>
+<div class="status-bar"><span class="blink-dot"></span><span id="status-txt">INITIALIZING FEED...</span><span style="margin-left:auto; font-size:0.65rem; opacity:0.4; font-family:var(--font-mono);">SYNC: 1s</span></div>
+<div id="warnings-banner" class="warnings-banner" hidden></div>
+<div class="stats-row" id="stats-row"><div class="stat-cell"><div class="stat-label">// ON DUTY</div><div class="stat-value green" id="stat-on">–</div></div><div class="stat-cell"><div class="stat-label">// DAY SHIFT</div><div class="stat-value green" id="stat-day">–</div></div><div class="stat-cell"><div class="stat-label">// EVENING SHIFT</div><div class="stat-value yellow" id="stat-eve">–</div></div><div class="stat-cell"><div class="stat-label">// NIGHT SHIFT</div><div class="stat-value orange" id="stat-night">–</div></div></div>
+<section class="section"><div class="section-header"><span class="section-icon">▶</span> PERSONNEL ON DUTY <span class="section-line"></span><span class="section-count" id="duty-count">0 / <%= people.length %></span></div><div class="cards-grid" id="cards-grid"></div></section>
+<section class="section"><div class="section-header"><span class="section-icon">▶</span> SCHEDULE MATRIX <span class="section-line"></span><span class="section-count">WEEK <%= weekLabel %></span></div><div style="display:flex;gap:8px;margin-bottom:10px;"><a class="hdr-badge" href="/?week=<%= week - 1 %>">← PREV WEEK</a><a class="hdr-badge" href="/?week=<%= week + 1 %>">NEXT WEEK →</a></div>
+<% const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Yerevan' }); const sortedDates = dates; %>
+<% if (!sortedDates.length) { %><div class="empty-state">NO SCHEDULE DATA FOR THIS WEEK.</div><% } else { %>
+<div class="table-wrap"><table class="sched-table"><thead><tr><th>OPERATOR</th><% sortedDates.forEach(d=>{ %><th class="<%= d===today?'today-col':'' %>"><%= d.slice(5) %><%= d===today?' ◈':'' %></th><% }) %></tr></thead><tbody><% people.forEach(person=>{ %><tr><td class="person-cell"><%= person.toUpperCase() %></td><% sortedDates.forEach(d=>{ const code=schedule[d]&&schedule[d][person]?schedule[d][person]:'X'; const info=shiftTimes[code]||shiftTimes.X; %><td class="shift-cell <%= d===today?'today-col':'' %>"><span class="shift-badge" style="color:<%= info.color %>; border-color:<%= info.color %>40"><%= code %></span></td><% }) %></tr><% }) %></tbody></table></div><% } %>
+</section>
+<template id="card-tpl"><div class="person-card" data-person=""><div class="card-header"><span class="card-name"></span><span class="card-badge"></span></div><div class="card-shift-label"></div><div class="big-timer"></div><div class="card-progress-wrap"><div class="card-progress-bar"><div class="card-progress-fill"></div><div class="card-progress-glow"></div></div><div class="card-pct"></div></div><div class="card-times"><span class="card-elapsed"></span><span class="card-remaining"></span></div><div class="card-next"></div></div></template>
+<script>window.SOC_DATA={people:<%-JSON.stringify(people)%>};</script><script src="/js/dashboard.js"></script>
+</body></html>
