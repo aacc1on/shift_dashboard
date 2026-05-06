@@ -54,12 +54,9 @@ function updateCard(person, info) {
   const elapsed = el.querySelector('.card-elapsed');
   const remaining = el.querySelector('.card-remaining');
   const nextEl = el.querySelector('.card-next');
-  const timerEl = el.querySelector('.big-timer') || (() => {
-    const t = document.createElement('div');
-    t.className = 'big-timer';
-    el.querySelector('.card-shift-label').after(t);
-    return t;
-  })();
+  const timerEl = el.querySelector('.big-timer');
+
+  el.style.setProperty('--card-color', color);
 
   if (current) {
     el.classList.remove('off-duty');
@@ -75,7 +72,7 @@ function updateCard(person, info) {
     el.classList.add('off-duty');
     el.classList.remove('active-shift');
     const code = todayCode || 'X';
-    badge.textContent = code === 'X' ? 'OFF TODAY' : code;
+    badge.textContent = code === 'X' ? 'OFF TODAY' : 'STANDBY';
     label.textContent = LABELS[code] || code;
     timerEl.textContent = '--:--:--';
     fill.style.width = '0%';
@@ -87,12 +84,30 @@ function updateCard(person, info) {
   [badge, label, timerEl, pct, remaining].forEach((x) => {
     if (x) x.style.color = color;
   });
-  badge.style.borderColor = `${color}80`;
+  badge.style.borderColor = `${color}60`;
   fill.style.background = color;
   glow.style.background = color;
   nextEl.innerHTML = next
     ? `NEXT: <span style="color:${COLORS[next.code] || '#fff'}">${LABELS[next.code] || next.code}</span> · ${fmtDate(next.start)} ${fmtTime(next.start)} · starts in <span>${fmtMs(next.startsIn)}</span>`
-    : 'NO UPCOMING SHIFTS IN DATA';
+    : '<span style="opacity:0.4">NO UPCOMING SHIFTS IN DATA</span>';
+}
+
+function updateStats(data) {
+  const counts = { D: 0, E: 0, N: 0, X: 0, total: 0 };
+  let onDuty = 0;
+  for (const info of Object.values(data)) {
+    if (info.current) {
+      counts[info.current.code] = (counts[info.current.code] || 0) + 1;
+      onDuty++;
+    }
+    counts.total++;
+  }
+  document.getElementById('stat-on').textContent = `${onDuty} / ${counts.total}`;
+  document.getElementById('stat-day').textContent = counts.D || '0';
+  document.getElementById('stat-eve').textContent = counts.E || '0';
+  document.getElementById('stat-night').textContent = counts.N || '0';
+  const dutyEl = document.getElementById('duty-count');
+  if (dutyEl) dutyEl.textContent = `${onDuty} / ${counts.total}`;
 }
 
 function updateClock() {
@@ -115,9 +130,11 @@ async function fetchAndUpdate() {
     const grid = document.getElementById('cards-grid');
     sorted.forEach((p) => cardEls[p] && grid.appendChild(cardEls[p]));
     Object.entries(data).forEach(([person, info]) => updateCard(person, info));
+    updateStats(data);
     const onDuty = sorted.filter((p) => data[p].current).length;
-    document.getElementById('status-txt').textContent = `FEED ACTIVE — ${onDuty}/${sorted.length} OPERATORS ON DUTY — LAST SYNC: ${new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Yerevan' })}`;
-  } catch (error) {
+    document.getElementById('status-txt').textContent =
+      `FEED ACTIVE — ${onDuty}/${sorted.length} OPERATORS ON DUTY — LAST SYNC: ${new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Yerevan' })}`;
+  } catch {
     document.getElementById('status-txt').textContent = 'CONNECTION ERROR — RETRYING...';
   }
 }

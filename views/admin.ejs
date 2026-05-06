@@ -22,29 +22,59 @@
       <div class="sub-logo">// ADMIN CONTROL PANEL //</div>
     </div>
     <div class="hdr-right">
-      <a class="hdr-badge green" href="/">MAIN DASHBOARD</a>
+      <a class="hdr-badge green" href="/">← DASHBOARD</a>
+      <a class="hdr-badge red" href="/logout">LOGOUT</a>
       <span class="hdr-badge" id="live-clock">--:--:--</span>
     </div>
   </header>
 
+  <div class="status-bar">
+    <span class="blink-dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange)"></span>
+    <span style="color:var(--orange)">ADMIN SESSION ACTIVE — CHANGES APPLY IMMEDIATELY</span>
+    <span style="margin-left:auto; font-size:0.65rem; opacity:0.4; font-family:var(--font-mono);">AUTH: SESSION</span>
+  </div>
+
   <section class="section">
     <div class="section-header">
-      <span class="section-icon">▶</span> EDIT OPERATORS AND SCHEDULE
+      <span class="section-icon">▶</span> SCHEDULE EDITOR
       <span class="section-line"></span>
     </div>
 
-    <div class="admin-panel">
-      <div class="admin-tools">
-        <input id="new-person" type="text" placeholder="New operator name" />
-        <button id="add-person-btn" type="button">Add Operator</button>
-        <input id="new-date" type="date" />
-        <button id="add-date-btn" type="button">Add Date</button>
-        <button id="save-admin-btn" type="button">Save Changes</button>
+    <div class="admin-layout">
+      <!-- SIDEBAR -->
+      <div class="admin-sidebar">
+        <div class="admin-sidebar-title">// ACTIONS</div>
+
+        <div class="sidebar-field">
+          <label>// ADD OPERATOR</label>
+          <input id="new-person" type="text" placeholder="operator name" />
+        </div>
+        <button class="admin-btn" id="add-person-btn" type="button">+ Add Operator</button>
+
+        <div class="sidebar-field" style="margin-top:16px">
+          <label>// ADD DATE</label>
+          <input id="new-date" type="date" />
+        </div>
+        <button class="admin-btn" id="add-date-btn" type="button">+ Add Date</button>
+
+        <div style="border-top:1px solid var(--border); margin:20px 0 16px;"></div>
+
+        <button class="admin-btn primary" id="save-admin-btn" type="button">▶ SAVE CHANGES</button>
+        <button class="admin-btn danger" id="reset-admin-btn" type="button">↺ Reload from Server</button>
+
+        <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+          <div class="admin-sidebar-title">// QUICK STATS</div>
+          <div id="sidebar-stats" style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim);line-height:2;"></div>
+        </div>
       </div>
-      <div class="table-wrap">
-        <table class="sched-table" id="admin-table"></table>
+
+      <!-- MAIN TABLE -->
+      <div class="admin-main">
+        <div class="admin-table-wrap">
+          <table id="admin-table"></table>
+        </div>
+        <div class="admin-feedback" id="admin-feedback"></div>
       </div>
-      <div class="admin-feedback" id="admin-feedback"></div>
     </div>
   </section>
 

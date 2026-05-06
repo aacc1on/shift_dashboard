@@ -1,8 +1,13 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const store = require('../data-store');
+const { requireAuth } = require('../middleware/auth');
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+router.use(requireAuth);
 
 router.get('/', async (req, res) => {
   const data = await store.load();

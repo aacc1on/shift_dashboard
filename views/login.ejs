@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOC // SECURE ACCESS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #030a0f;
+      --panel: #081420;
+      --border: #0a2a3a;
+      --border2: #0d3a50;
+      --green: #00ff88;
+      --red: #ff3366;
+      --yellow: #ffcc00;
+      --text: #c8e8f0;
+      --text-dim: #4a7a8a;
+      --font-mono: 'Share Tech Mono', monospace;
+      --font-head: 'Orbitron', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    .scanlines {
+      position: fixed; inset: 0; pointer-events: none; z-index: 100;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,136,0.012) 2px, rgba(0,255,136,0.012) 4px);
+    }
+    .grid-bg {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: linear-gradient(rgba(0,255,136,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,136,0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    /* Animated corner decorations */
+    .corner {
+      position: fixed;
+      width: 80px; height: 80px;
+      z-index: 1;
+    }
+    .corner::before, .corner::after {
+      content: '';
+      position: absolute;
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green);
+    }
+    .corner::before { width: 2px; height: 40px; }
+    .corner::after { width: 40px; height: 2px; }
+    .corner-tl { top: 20px; left: 20px; }
+    .corner-tr { top: 20px; right: 20px; transform: scaleX(-1); }
+    .corner-bl { bottom: 20px; left: 20px; transform: scaleY(-1); }
+    .corner-br { bottom: 20px; right: 20px; transform: scale(-1); }
+
+    .login-wrap {
+      position: relative; z-index: 10;
+      width: 100%; max-width: 420px;
+      padding: 0 20px;
+    }
+
+    .login-brand {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .brand-logo {
+      font-family: var(--font-head);
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: var(--green);
+      text-shadow: 0 0 30px var(--green), 0 0 60px rgba(0,255,136,0.3);
+      letter-spacing: 0.3em;
+      line-height: 1;
+      animation: flicker 4s infinite;
+    }
+    @keyframes flicker {
+      0%,95%,100% { opacity: 1; }
+      96% { opacity: 0.85; }
+      97% { opacity: 1; }
+      98% { opacity: 0.9; }
+    }
+    .brand-sub {
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      letter-spacing: 0.35em;
+      margin-top: 6px;
+    }
+    .brand-line {
+      width: 60px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+      margin: 14px auto 0;
+    }
+
+    .login-card {
+      background: var(--panel);
+      border: 1px solid var(--border2);
+      padding: 36px 32px;
+      position: relative;
+      clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+    }
+    .login-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+      box-shadow: 0 0 20px var(--green);
+    }
+
+    .login-title {
+      font-family: var(--font-head);
+      font-size: 0.7rem;
+      color: var(--green);
+      letter-spacing: 0.3em;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .login-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border2), transparent);
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+    .field-label {
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      letter-spacing: 0.2em;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .field-input-wrap {
+      position: relative;
+    }
+    .field-prefix {
+      position: absolute;
+      left: 12px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--green);
+      font-size: 0.75rem;
+      pointer-events: none;
+    }
+    .field input {
+      width: 100%;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      padding: 11px 14px 11px 32px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      letter-spacing: 0.05em;
+    }
+    .field input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 12px rgba(0,255,136,0.15);
+    }
+    .field input::placeholder { color: var(--text-dim); }
+
+    .error-banner {
+      background: rgba(255,51,102,0.1);
+      border: 1px solid rgba(255,51,102,0.4);
+      color: var(--red);
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .error-banner::before { content: '⚠'; }
+
+    .login-btn {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: var(--font-head);
+      font-size: 0.72rem;
+      letter-spacing: 0.25em;
+      padding: 13px;
+      cursor: pointer;
+      margin-top: 8px;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+    }
+    .login-btn::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: var(--green);
+      transform: translateX(-101%);
+      transition: transform 0.25s ease;
+      z-index: 0;
+    }
+    .login-btn:hover::before { transform: translateX(0); }
+    .login-btn:hover { color: #000; box-shadow: 0 0 20px rgba(0,255,136,0.3); }
+    .login-btn span { position: relative; z-index: 1; }
+
+    .login-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .login-back {
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      letter-spacing: 0.15em;
+      transition: color 0.2s;
+    }
+    .login-back:hover { color: var(--text); }
+    .login-clock {
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+    }
+
+    /* Typing animation for placeholder security text */
+    .security-lines {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .sec-line {
+      font-size: 0.55rem;
+      color: var(--text-dim);
+      letter-spacing: 0.15em;
+      opacity: 0.5;
+      line-height: 1.8;
+    }
+    .blink { animation: blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  </style>
+</head>
+<body>
+  <div class="scanlines"></div>
+  <div class="grid-bg"></div>
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="brand-logo">SOC</div>
+      <div class="brand-sub">// SECURITY OPERATIONS CENTER //</div>
+      <div class="brand-line"></div>
+    </div>
+
+    <div class="login-card">
+      <div class="login-title">▶ AUTHENTICATION REQUIRED</div>
+
+      <% if (error) { %>
+      <div class="error-banner">INVALID CREDENTIALS — ACCESS DENIED</div>
+      <% } %>
+
+      <form method="POST" action="/login">
+        <input type="hidden" name="redirect" value="<%= redirect %>" />
+        <div class="field">
+          <label class="field-label" for="username">// OPERATOR ID</label>
+          <div class="field-input-wrap">
+            <span class="field-prefix">›</span>
+            <input type="text" id="username" name="username" placeholder="enter username" autocomplete="username" required />
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="password">// ACCESS CODE</label>
+          <div class="field-input-wrap">
+            <span class="field-prefix">›</span>
+            <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required />
+          </div>
+        </div>
+        <button class="login-btn" type="submit"><span>AUTHENTICATE →</span></button>
+      </form>
+
+      <div class="login-footer">
+        <a class="login-back" href="/">← MAIN DASHBOARD</a>
+        <span class="login-clock" id="login-clock">--:--:--</span>
+      </div>
+    </div>
+
+    <div class="security-lines">
+      <div class="sec-line">AUTHORIZED PERSONNEL ONLY</div>
+      <div class="sec-line">ALL ACCESS ATTEMPTS ARE LOGGED<span class="blink">_</span></div>
+    </div>
+  </div>
+
+  <script>
+    const el = document.getElementById('login-clock');
+    const tick = () => el.textContent = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Yerevan', hour12: false });
+    tick(); setInterval(tick, 1000);
+    document.getElementById('username').focus();
+  </script>
+</body>
+</html>

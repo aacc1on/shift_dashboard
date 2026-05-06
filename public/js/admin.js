@@ -1,72 +1,102 @@
 'use strict';
 
 const VALID_CODES = ['D', 'E', 'N', 'X'];
-const LABELS = { D: 'Day', E: 'Evening', N: 'Night', X: 'Off' };
+const COLORS = { D: '#00ff88', E: '#ffcc00', N: '#ff6b35', X: '#4a9eff' };
 let people = [];
 let dates = [];
 let schedule = {};
 
 function setFeedback(message, type = 'info') {
-  const feedback = document.getElementById('admin-feedback');
-  feedback.textContent = message;
-  feedback.style.color = type === 'error' ? '#ff3366' : '#00ff88';
+  const el = document.getElementById('admin-feedback');
+  el.textContent = message;
+  el.className = `admin-feedback${type === 'error' ? ' error' : ''}`;
+}
+
+function updateSidebarStats() {
+  const el = document.getElementById('sidebar-stats');
+  if (!el) return;
+  const counts = { D: 0, E: 0, N: 0, X: 0 };
+  for (const dateObj of Object.values(schedule)) {
+    for (const code of Object.values(dateObj)) {
+      if (counts[code] !== undefined) counts[code]++;
+    }
+  }
+  el.innerHTML = [
+    `<span style="color:#00ff88">D (Day)&nbsp;&nbsp;&nbsp;&nbsp;</span> ${counts.D} shifts`,
+    `<span style="color:#ffcc00">E (Evening)</span> ${counts.E} shifts`,
+    `<span style="color:#ff6b35">N (Night)&nbsp;&nbsp;</span> ${counts.N} shifts`,
+    `<span style="color:#4a9eff">X (Off)&nbsp;&nbsp;&nbsp;</span> ${counts.X} slots`,
+    `<br><span style="opacity:.4">Operators: ${people.length}</span>`,
+    `<span style="opacity:.4">Dates: ${dates.length}</span>`,
+  ].join('<br>');
+}
+
+function colorSelect(select) {
+  const color = COLORS[select.value] || '#c8e8f0';
+  select.style.color = color;
+  select.style.borderColor = color + '60';
 }
 
 function buildAdminTable() {
   const table = document.getElementById('admin-table');
   const headerRow = [
     '<tr>',
-    '<th>OPERATOR</th>',
-    ...dates.map((date) => `<th><div class="date-header"><input class="date-input" type="date" value="${date}" data-date="${date}" /><button class="remove-date-btn" type="button" title="Remove date">×</button></div></th>`),
+    '<th style="text-align:left;min-width:130px">OPERATOR</th>',
+    ...dates.map((date) => `<th><input class="date-input-cell" type="date" value="${date}" data-date="${date}" /><button class="remove-btn" data-remove-date="${date}" title="Remove date">×</button></th>`),
     '</tr>'
   ].join('');
 
   const bodyRows = people.map((person) => {
     const cells = dates.map((date) => {
-      const current = schedule[date] && schedule[date][person] ? schedule[date][person] : 'X';
-      return `<td><select data-person="${person}" data-date="${date}">${VALID_CODES.map((code) => `<option value="${code}" ${code === current ? 'selected' : ''}>${code}</option>`).join('')}</select></td>`;
+      const current = schedule[date]?.[person] || 'X';
+      const opts = VALID_CODES.map((code) =>
+        `<option value="${code}" ${code === current ? 'selected' : ''}>${code}</option>`
+      ).join('');
+      return `<td><select data-person="${person}" data-date="${date}">${opts}</select></td>`;
     }).join('');
 
-    return `<tr><td><div class="person-row"><input class="person-name" value="${person}" data-person="${person}" /><button class="remove-person-btn" type="button" title="Remove operator">×</button></div></td>${cells}</tr>`;
+    return `<tr>
+      <td>
+        <input class="person-name-input" value="${person}" data-person="${person}" />
+        <button class="remove-btn" data-remove-person="${person}" title="Remove operator">×</button>
+      </td>
+      ${cells}
+    </tr>`;
   }).join('');
 
   table.innerHTML = `<thead>${headerRow}</thead><tbody>${bodyRows}</tbody>`;
+
+  // Color all selects
+  table.querySelectorAll('select').forEach((s) => {
+    colorSelect(s);
+    s.addEventListener('change', () => colorSelect(s));
+  });
 }
 
 function refreshTable() {
   buildAdminTable();
   attachControls();
+  updateSidebarStats();
 }
 
 function getFormData() {
-  const nameInputs = Array.from(document.querySelectorAll('.person-name'));
-  const dateInputs = Array.from(document.querySelectorAll('.date-input'));
+  const nameInputs = Array.from(document.querySelectorAll('.person-name-input'));
+  const dateInputs = Array.from(document.querySelectorAll('.date-input-cell'));
 
-  const newPeople = nameInputs.map((input) => input.value.trim()).filter(Boolean);
-  const newDates = dateInputs.map((input) => input.value).filter(Boolean);
+  const newPeople = nameInputs.map((i) => i.value.trim()).filter(Boolean);
+  const newDates = dateInputs.map((i) => i.value).filter(Boolean);
 
-  const uniqueNames = new Set(newPeople);
-  const uniqueDates = new Set(newDates);
-
-  if (newPeople.length !== uniqueNames.size) {
-    throw new Error('Operator names must be unique.');
-  }
-
-  if (newDates.length !== uniqueDates.size) {
-    throw new Error('Dates must be unique.');
-  }
-
-  const invalidDate = newDates.find((date) => !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date));
-  if (invalidDate) {
-    throw new Error('Dates must use ISO format YYYY-MM-DD.');
-  }
+  if (new Set(newPeople).size !== newPeople.length) throw new Error('Operator names must be unique.');
+  if (new Set(newDates).size !== newDates.length) throw new Error('Dates must be unique.');
+  const bad = newDates.find((d) => !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d));
+  if (bad) throw new Error('Invalid date format: ' + bad);
 
   const payloadSchedule = {};
   newDates.forEach((date) => {
     payloadSchedule[date] = {};
     newPeople.forEach((person) => {
-      const select = document.querySelector(`select[data-person="${CSS.escape(person)}"][data-date="${CSS.escape(date)}"]`);
-      payloadSchedule[date][person] = select ? select.value : 'X';
+      const sel = document.querySelector(`select[data-person="${CSS.escape(person)}"][data-date="${CSS.escape(date)}"]`);
+      payloadSchedule[date][person] = sel ? sel.value : 'X';
     });
   });
 
@@ -74,39 +104,35 @@ function getFormData() {
 }
 
 function attachControls() {
-  document.querySelectorAll('.remove-person-btn').forEach((button) => {
-    button.addEventListener('click', (event) => {
-      const row = event.target.closest('tr');
-      if (!row) return;
-      const nameInput = row.querySelector('.person-name');
-      const name = nameInput?.value.trim();
-      people = people.filter((person) => person !== name);
+  document.querySelectorAll('[data-remove-person]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.removePerson;
+      people = people.filter((p) => p !== name);
+      for (const d of dates) { if (schedule[d]) delete schedule[d][name]; }
       refreshTable();
     });
   });
 
-  document.querySelectorAll('.remove-date-btn').forEach((button) => {
-    button.addEventListener('click', (event) => {
-      const headerCell = event.target.closest('th');
-      if (!headerCell) return;
-      const input = headerCell.querySelector('.date-input');
-      const date = input?.value;
-      dates = dates.filter((value) => value !== date);
+  document.querySelectorAll('[data-remove-date]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const date = btn.dataset.removeDate;
+      dates = dates.filter((d) => d !== date);
+      delete schedule[date];
       refreshTable();
     });
   });
 
-  document.querySelectorAll('.date-input').forEach((input) => {
-    input.addEventListener('change', (event) => {
-      const cell = event.target.closest('th');
-      if (!cell) return;
-      const originalDate = event.target.dataset.date;
-      const updatedDate = event.target.value.trim();
-      if (!updatedDate) return;
-      const index = dates.indexOf(originalDate);
-      if (index !== -1) {
-        dates[index] = updatedDate;
-        event.target.dataset.date = updatedDate;
+  document.querySelectorAll('.date-input-cell').forEach((input) => {
+    input.addEventListener('change', () => {
+      const old = input.dataset.date;
+      const val = input.value.trim();
+      if (!val) return;
+      const idx = dates.indexOf(old);
+      if (idx !== -1) {
+        dates[idx] = val;
+        schedule[val] = schedule[old] || {};
+        if (old !== val) delete schedule[old];
+        input.dataset.date = val;
         refreshTable();
       }
     });
@@ -117,69 +143,78 @@ function bindAdminActions() {
   document.getElementById('add-person-btn').addEventListener('click', () => {
     const input = document.getElementById('new-person');
     const value = input.value.trim();
-    if (!value) {
-      setFeedback('Enter a name before adding.', 'error');
-      return;
-    }
-    if (people.includes(value)) {
-      setFeedback('That operator already exists.', 'error');
-      return;
-    }
+    if (!value) { setFeedback('Enter a name first.', 'error'); return; }
+    if (people.includes(value)) { setFeedback('Operator already exists.', 'error'); return; }
     people.push(value);
+    for (const d of dates) { if (schedule[d]) schedule[d][value] = 'X'; }
     input.value = '';
     refreshTable();
+    setFeedback(`Operator "${value}" added.`);
   });
 
   document.getElementById('add-date-btn').addEventListener('click', () => {
     const input = document.getElementById('new-date');
     const value = input.value.trim();
-    if (!value) {
-      setFeedback('Select a date before adding.', 'error');
-      return;
-    }
-    if (dates.includes(value)) {
-      setFeedback('That date is already in the schedule.', 'error');
-      return;
-    }
+    if (!value) { setFeedback('Select a date first.', 'error'); return; }
+    if (dates.includes(value)) { setFeedback('Date already in schedule.', 'error'); return; }
     dates.push(value);
+    dates.sort();
+    schedule[value] = {};
+    people.forEach((p) => { schedule[value][p] = 'X'; });
     input.value = '';
     refreshTable();
+    setFeedback(`Date ${value} added.`);
   });
 
   document.getElementById('save-admin-btn').addEventListener('click', async () => {
+    setFeedback('Saving...');
     try {
       const payload = getFormData();
-      const response = await fetch('/api/admin', {
+      const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Unable to save changes.');
-      }
-      setFeedback('Changes saved successfully. Refresh the SOC dashboard to see updates.');
-    } catch (error) {
-      setFeedback(error.message, 'error');
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Save failed.');
+      // Sync local state
+      people = payload.people;
+      dates = payload.dates;
+      schedule = payload.schedule;
+      setFeedback('Changes saved. Dashboard will reflect updates on next refresh.');
+    } catch (err) {
+      setFeedback(err.message, 'error');
+    }
+  });
+
+  document.getElementById('reset-admin-btn').addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/admin');
+      const data = await res.json();
+      people = data.people;
+      dates = data.dates;
+      schedule = data.schedule;
+      refreshTable();
+      setFeedback('Reloaded from server.');
+    } catch {
+      setFeedback('Failed to reload from server.', 'error');
     }
   });
 }
 
 async function initialize() {
   const init = window.SOC_INIT || {};
-  people = Array.isArray(init.people) ? init.people : [];
-  dates = Array.isArray(init.dates) ? init.dates : [];
-  schedule = typeof init.schedule === 'object' ? init.schedule : {};
+  people = Array.isArray(init.people) ? [...init.people] : [];
+  dates = Array.isArray(init.dates) ? [...init.dates] : [];
+  schedule = typeof init.schedule === 'object' ? JSON.parse(JSON.stringify(init.schedule)) : {};
 
   refreshTable();
   bindAdminActions();
-  setFeedback('Admin panel loaded.');
+  setFeedback('Admin panel ready.');
+
   const clockEl = document.getElementById('live-clock');
-  function updateClock() {
-    clockEl.textContent = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Yerevan', hour12: false });
-  }
-  updateClock();
-  setInterval(updateClock, 1000);
+  const tick = () => clockEl.textContent = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Yerevan', hour12: false });
+  tick(); setInterval(tick, 1000);
 }
 
-initialize().catch((error) => setFeedback(error.message, 'error'));
+initialize().catch((err) => setFeedback(err.message, 'error'));

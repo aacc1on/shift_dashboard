@@ -9,9 +9,7 @@
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <!-- Scanline overlay -->
   <div class="scanlines"></div>
-  <!-- Grid background -->
   <div class="grid-bg"></div>
 
   <!-- HEADER -->
@@ -25,7 +23,7 @@
       <div class="sub-logo">// SHIFT COMMAND CENTER //</div>
     </div>
     <div class="hdr-right">
-      <a class="hdr-badge green" href="/admin">ADMIN PANEL</a>
+      <a class="hdr-badge green" href="/admin">⚙ ADMIN</a>
       <span class="hdr-badge" id="live-clock">--:--:--</span>
     </div>
   </header>
@@ -34,21 +32,40 @@
   <div class="status-bar">
     <span class="blink-dot"></span>
     <span id="status-txt">INITIALIZING FEED...</span>
-    <span style="margin-left:auto; font-size:0.7rem; opacity:0.5;">AUTO-REFRESH: 1s</span>
+    <span style="margin-left:auto; font-size:0.65rem; opacity:0.4; font-family:var(--font-mono);">SYNC: 1s</span>
   </div>
 
-  <!-- CURRENTLY ON DUTY -->
+  <!-- STATS ROW -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-cell">
+      <div class="stat-label">// ON DUTY</div>
+      <div class="stat-value green" id="stat-on">–</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">// DAY SHIFT</div>
+      <div class="stat-value green" id="stat-day">–</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">// EVENING SHIFT</div>
+      <div class="stat-value yellow" id="stat-eve">–</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">// NIGHT SHIFT</div>
+      <div class="stat-value orange" id="stat-night">–</div>
+    </div>
+  </div>
+
+  <!-- PERSONNEL CARDS -->
   <section class="section">
     <div class="section-header">
       <span class="section-icon">▶</span> PERSONNEL ON DUTY
       <span class="section-line"></span>
+      <span class="section-count" id="duty-count">0 / <%= people.length %></span>
     </div>
-    <div class="cards-grid" id="cards-grid">
-      <!-- Filled by JS -->
-    </div>
+    <div class="cards-grid" id="cards-grid"></div>
   </section>
 
-  <!-- FULL SCHEDULE TABLE -->
+  <!-- SCHEDULE TABLE -->
   <section class="section">
     <div class="section-header">
       <span class="section-icon">▶</span> SCHEDULE MATRIX
@@ -59,9 +76,12 @@
         <thead>
           <tr>
             <th>OPERATOR</th>
-            <% const dates = Object.keys(schedule).sort(); %>
-            <% dates.forEach(d => { %>
-              <th><%= d.slice(5) %></th>
+            <% const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Yerevan' }); %>
+            <% const sortedDates = Object.keys(schedule).sort(); %>
+            <% sortedDates.forEach(d => { %>
+              <th class="<%= d === today ? 'today-col' : '' %>">
+                <%= d.slice(5) %><%= d === today ? ' ◈' : '' %>
+              </th>
             <% }); %>
           </tr>
         </thead>
@@ -69,11 +89,11 @@
           <% people.forEach(person => { %>
           <tr>
             <td class="person-cell"><%= person.toUpperCase() %></td>
-            <% dates.forEach(d => {
+            <% sortedDates.forEach(d => {
                 const code = schedule[d] && schedule[d][person] ? schedule[d][person] : 'X';
                 const info = shiftTimes[code] || shiftTimes['X'];
             %>
-            <td class="shift-cell" style="--sc: <%= info.color %>">
+            <td class="shift-cell <%= d === today ? 'today-col' : '' %>">
               <span class="shift-badge" style="color:<%= info.color %>; border-color:<%= info.color %>40">
                 <%= code %>
               </span>
@@ -87,16 +107,17 @@
   </section>
 
   <!-- LEGEND -->
-  <section class="section legend-section">
+  <section class="section" style="padding-top:0">
     <div class="legend">
-      <div class="legend-item"><span class="leg-dot" style="background:#00ff88"></span> D — Day 09:00–17:00</div>
+      <div class="legend-item"><span class="leg-dot" style="background:#00ff88"></span> D — Day &nbsp;&nbsp;09:00–17:00</div>
       <div class="legend-item"><span class="leg-dot" style="background:#ffcc00"></span> E — Evening 17:00–01:00</div>
-      <div class="legend-item"><span class="leg-dot" style="background:#ff6b35"></span> N — Night 01:00–09:00</div>
+      <div class="legend-item"><span class="leg-dot" style="background:#ff6b35"></span> N — Night &nbsp;01:00–09:00</div>
       <div class="legend-item"><span class="leg-dot" style="background:#4a9eff"></span> X — Day Off</div>
-          </div>
+      <div style="margin-left:auto; font-family:var(--font-mono); font-size:0.58rem; color:var(--text-dim); opacity:0.5;">◈ = TODAY</div>
+    </div>
   </section>
 
-  <!-- CARD TEMPLATE (hidden) -->
+  <!-- CARD TEMPLATE -->
   <template id="card-tpl">
     <div class="person-card" data-person="">
       <div class="card-header">
@@ -104,6 +125,7 @@
         <span class="card-badge"></span>
       </div>
       <div class="card-shift-label"></div>
+      <div class="big-timer"></div>
       <div class="card-progress-wrap">
         <div class="card-progress-bar">
           <div class="card-progress-fill"></div>
@@ -118,8 +140,6 @@
       <div class="card-next"></div>
     </div>
   </template>
-
-  
 
   <script>window.SOC_DATA = { people: <%- JSON.stringify(people) %> };</script>
   <script src="/js/dashboard.js"></script>
