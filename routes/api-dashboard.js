@@ -75,12 +75,31 @@ router.get('/status', async (req, res) => {
   const responseData = {
     system: data.system,
     serverTime: now.toISOString(),
-    data: {}
+    data: {},
+    warnings: []
   };
+
+  const todayKey = dateStr(now);
+  const scheduledToday = data.schedule[todayKey] || {};
+  const scheduledPresence = { D: 0, E: 0, N: 0 };
+  for (const code of Object.values(scheduledToday)) {
+    if (scheduledPresence[code] !== undefined) scheduledPresence[code] += 1;
+  }
+
+  const coverage = { D: 0, E: 0, N: 0 };
 
   for (const person of data.people) {
     responseData.data[person] = getPersonStatus(person, now, data.schedule);
+    const code = responseData.data[person].current && responseData.data[person].current.code;
+    if (coverage[code] !== undefined) coverage[code] += 1;
   }
+
+  const warningText = { D: 'DAY SHIFT UNCOVERED', E: 'EVENING SHIFT UNCOVERED', N: 'NIGHT SHIFT UNCOVERED' };
+  ['D', 'E', 'N'].forEach((code) => {
+    if (scheduledPresence[code] > 0 && coverage[code] === 0) {
+      responseData.warnings.push({ shift: code, message: warningText[code] });
+    }
+  });
 
   res.json(responseData);
 });

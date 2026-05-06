@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  soc-dashboard:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - SOC_USER=admin
+      - SOC_PASS=soc2026
+      - SESSION_SECRET=changeme
+      - PORT=3000
+    volumes:
+      - ./data.json:/app/data.json
+      - ./audit.log:/app/audit.log
+    restart: unless-stopped
