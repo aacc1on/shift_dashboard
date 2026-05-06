@@ -114,6 +114,21 @@ function updateClock() {
   document.getElementById('live-clock').textContent = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Yerevan', hour12: false });
 }
 
+
+function renderWarnings(warnings){
+ const el=document.getElementById('warnings-banner');
+ if(!el) return;
+ if(!warnings||!warnings.length){el.hidden=true;el.textContent='';return;}
+ el.hidden=false;el.textContent=warnings.map(w=>w.message).join(' | ');
+}
+
+function initTheme(){
+ const btn=document.getElementById('theme-toggle');
+ const saved=localStorage.getItem('soc_theme');
+ if(saved==='light') document.body.classList.add('light');
+ if(btn){btn.addEventListener('click',()=>{document.body.classList.toggle('light');localStorage.setItem('soc_theme',document.body.classList.contains('light')?'light':'dark');});}
+}
+
 function sortPeople(data) {
   return Object.keys(data).sort((a, b) =>
     (data[b].current ? 1 : 0) - (data[a].current ? 1 : 0) ||
@@ -125,12 +140,13 @@ async function fetchAndUpdate() {
   try {
     const res = await fetch('/api/dashboard/status');
     const json = await res.json();
-    const { data } = json;
+    const { data, warnings } = json;
     const sorted = sortPeople(data);
     const grid = document.getElementById('cards-grid');
     sorted.forEach((p) => cardEls[p] && grid.appendChild(cardEls[p]));
     Object.entries(data).forEach(([person, info]) => updateCard(person, info));
     updateStats(data);
+    renderWarnings(warnings);
     const onDuty = sorted.filter((p) => data[p].current).length;
     document.getElementById('status-txt').textContent =
       `FEED ACTIVE — ${onDuty}/${sorted.length} OPERATORS ON DUTY — LAST SYNC: ${new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Yerevan' })}`;
@@ -144,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
   rebuildCards(Array.isArray(init.people) ? init.people : []);
   updateClock();
   setInterval(updateClock, 1000);
+  initTheme();
   fetchAndUpdate();
   setInterval(fetchAndUpdate, 1000);
 });

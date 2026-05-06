@@ -565,3 +565,26 @@ body {
   .stats-row { grid-template-columns: 1fr 1fr; }
   .big-timer { font-size: 1.3rem; }
 }
+body.light {
+  --bg: #f0f4f8;
+  --panel: #ffffff;
+  --border: #d0dce8;
+  --border2: #b0c8d8;
+  --text: #1a2a3a;
+  --text-dim: #6a8a9a;
+}
+
+.warnings-banner {
+  position: relative; z-index: 11; margin: 10px 32px 0; padding: 10px 14px;
+  border: 1px solid rgba(255,51,102,0.6); color: #ffdbe6; background: rgba(255,51,102,0.2);
+  font-family: var(--font-head); letter-spacing: .12em; animation: blink 0.9s infinite;
+}
+.empty-state { border:1px dashed var(--border2); padding:16px; font-family:var(--font-mono); color:var(--text-dim); }
+
+@media (max-width: 480px) {
+  .cards-grid { grid-template-columns: 1fr; }
+  .person-card { padding: 14px; }
+  .big-timer { font-size: 1.1rem; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .section, .hdr, .status-bar { padding-left: 14px; padding-right: 14px; }
+}
