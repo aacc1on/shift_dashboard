@@ -438,8 +438,42 @@ body {
 .admin-btn.primary:hover { background: rgba(0,255,136,0.12); }
 .admin-btn.danger { border-color: var(--border2); color: var(--text-dim); }
 .admin-btn.danger:hover { border-color: var(--red); color: var(--red); }
+.admin-btn.ai { border-color: rgba(74,158,255,0.35); color: var(--blue); }
+.admin-btn.ai:hover { background: rgba(74,158,255,0.12); border-color: var(--blue); }
 
 .admin-main { min-width: 0; }
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.week-label {
+  font-family: var(--font-head);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: var(--text);
+  padding: 0 6px;
+}
+.admin-nav-btn {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  padding: 6px 12px;
+  border: 1px solid var(--border2);
+  background: var(--panel);
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.admin-nav-btn:hover { color: var(--text); border-color: var(--green); background: var(--panel2); }
+.admin-nav-btn.accent { color: var(--green); border-color: rgba(0,255,136,0.3); margin-left: auto; }
+.admin-nav-btn.accent:hover { background: rgba(0,255,136,0.1); }
+@media (max-width: 640px) {
+  .admin-nav-btn.accent { margin-left: 0; }
+}
 
 .admin-table-wrap {
   overflow-x: auto;
@@ -463,16 +497,21 @@ body {
   letter-spacing: 0.1em;
   white-space: nowrap;
 }
+#admin-table th.today-col { background: rgba(0,255,136,0.14); }
 #admin-table td {
   border: 1px solid var(--border);
   padding: 6px 10px;
   text-align: center;
   background: var(--bg);
 }
+#admin-table td.today-col { background: rgba(0,255,136,0.05); }
 #admin-table td:first-child {
   background: rgba(0,0,0,0.3);
   text-align: left;
   min-width: 130px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
 }
 #admin-table select {
   background: #040d14;

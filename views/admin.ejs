@@ -57,6 +57,15 @@
         </div>
         <button class="admin-btn" id="add-date-btn" type="button">+ Add Date</button>
 
+        <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+          <div class="admin-sidebar-title">// AUTO-GENERATE</div>
+          <div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-dim);line-height:1.5;margin-bottom:10px;">
+            Fills 5 shifts + 2 days off per week, never rotates backward (N→D, N→E, E→D blocked), balances totals across the team. Uses AI if OPENROUTER_API_KEY is configured, otherwise a built-in generator. Review before saving.
+          </div>
+          <button class="admin-btn ai" id="autogen-week-btn" type="button">🤖 Generate This Week</button>
+          <button class="admin-btn ai" id="autogen-month-btn" type="button">🤖 Generate Whole Month</button>
+        </div>
+
         <div style="border-top:1px solid var(--border); margin:20px 0 16px;"></div>
 
         <button class="admin-btn primary" id="save-admin-btn" type="button">▶ SAVE CHANGES</button>
@@ -64,7 +73,7 @@
         <a class="admin-btn" href="/api/export/csv" target="_blank" rel="noopener">⤓ Export CSV</a>
 
         <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
-          <div class="admin-sidebar-title">// QUICK STATS</div>
+          <div class="admin-sidebar-title">// MONTH TOTALS</div>
           <div id="sidebar-stats" style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim);line-height:2;"></div>
         </div>
 
@@ -76,6 +85,13 @@
 
       <!-- MAIN TABLE -->
       <div class="admin-main">
+        <div class="week-nav">
+          <button class="admin-nav-btn" id="week-prev" type="button">← PREV WEEK</button>
+          <span class="week-label" id="week-label">WEEK —</span>
+          <button class="admin-nav-btn" id="week-next" type="button">NEXT WEEK →</button>
+          <button class="admin-nav-btn accent" id="week-today" type="button">THIS WEEK</button>
+          <button class="admin-nav-btn accent" id="week-fill" type="button">+ FILL WEEK</button>
+        </div>
         <div class="admin-table-wrap">
           <table id="admin-table"></table>
         </div>

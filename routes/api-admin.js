@@ -6,6 +6,7 @@ const path = require('path');
 const router = express.Router();
 const store = require('../data-store');
 const { requireAuth } = require('../middleware/auth');
+const { autoGenerate } = require('../schedule-generator');
 
 const AUDIT_LOG_PATH = path.join(__dirname, '..', 'audit.log');
 
@@ -52,6 +53,26 @@ router.post('/', async (req, res) => {
     res.json({ ok: true, system: saved.system });
   } catch (error) {
     res.status(500).json({ error: 'Unable to save admin changes.' });
+  }
+});
+
+router.post('/autogenerate', async (req, res) => {
+  const payload = req.body || {};
+  const people = Array.isArray(payload.people) ? payload.people.map((item) => String(item || '').trim()).filter(Boolean) : [];
+  const dates = Array.isArray(payload.dates) ? payload.dates.map((item) => String(item || '').trim()).filter(Boolean) : [];
+
+  if (!people.length || !dates.length) {
+    return res.status(400).json({ error: 'At least one operator and one date are required.' });
+  }
+  if (!dates.every((date) => ISO_DATE.test(date))) {
+    return res.status(400).json({ error: 'Dates must be ISO format YYYY-MM-DD.' });
+  }
+
+  try {
+    const result = await autoGenerate(people, dates, { useAi: payload.useAi !== false });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Auto-generate failed: ' + error.message });
   }
 });
 

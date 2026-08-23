@@ -11,26 +11,49 @@ const SHIFT_TIMES = {
   X: { start: null, end: null, label: 'Day Off', color: '#4a9eff', bg: '#001a2a' }
 };
 
-const DEFAULT_DATA = {
-  system: 'SOC',
-  people: ['Areg', 'Minas', 'Rubik', 'Levon', 'Hrach', 'Arshak'],
-  dates: ['2026-05-04', '2026-05-05', '2026-05-06', '2026-05-07', '2026-05-08', '2026-05-09', '2026-05-10'],
-  schedule: {
-    '2026-05-04': { Areg: 'X', Minas: 'N', Rubik: 'X', Levon: 'D', Hrach: 'E', Arshak: 'N' },
-    '2026-05-05': { Areg: 'D', Minas: 'X', Rubik: 'N', Levon: 'E', Hrach: 'N', Arshak: 'X' },
-    '2026-05-06': { Areg: 'E', Minas: 'D', Rubik: 'N', Levon: 'E', Hrach: 'X', Arshak: 'N' },
-    '2026-05-07': { Areg: 'E', Minas: 'D', Rubik: 'X', Levon: 'N', Hrach: 'D', Arshak: 'N' },
-    '2026-05-08': { Areg: 'X', Minas: 'N', Rubik: 'D', Levon: 'N', Hrach: 'E', Arshak: 'X' },
-    '2026-05-09': { Areg: 'N', Minas: 'X', Rubik: 'D', Levon: 'X', Hrach: 'N', Arshak: 'E' },
-    '2026-05-10': { Areg: 'N', Minas: 'D', Rubik: 'N', Levon: 'X', Hrach: 'X', Arshak: 'E' }
+const WEEK_PATTERN = [
+  { Areg: 'X', Minas: 'N', Rubik: 'X', Levon: 'D', Hrach: 'E', Arshak: 'N' },
+  { Areg: 'D', Minas: 'X', Rubik: 'N', Levon: 'E', Hrach: 'N', Arshak: 'X' },
+  { Areg: 'E', Minas: 'D', Rubik: 'N', Levon: 'E', Hrach: 'X', Arshak: 'N' },
+  { Areg: 'E', Minas: 'D', Rubik: 'X', Levon: 'N', Hrach: 'D', Arshak: 'N' },
+  { Areg: 'X', Minas: 'N', Rubik: 'D', Levon: 'N', Hrach: 'E', Arshak: 'X' },
+  { Areg: 'N', Minas: 'X', Rubik: 'D', Levon: 'X', Hrach: 'N', Arshak: 'E' },
+  { Areg: 'N', Minas: 'D', Rubik: 'N', Levon: 'X', Hrach: 'X', Arshak: 'E' }
+];
+
+function pad(n) {
+  return String(n).padStart(2, '0');
+}
+
+function isoLocal(date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function buildDefaultData() {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Yerevan' }));
+  const day = now.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset - 7);
+
+  const people = ['Areg', 'Minas', 'Rubik', 'Levon', 'Hrach', 'Arshak'];
+  const dates = [];
+  const schedule = {};
+
+  for (let i = 0; i < 28; i++) {
+    const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const iso = isoLocal(d);
+    dates.push(iso);
+    schedule[iso] = WEEK_PATTERN[i % 7];
   }
-};
+
+  return { system: 'SOC', people, dates, schedule };
+}
 
 async function ensureStore() {
   try {
     await fs.access(STORE_PATH);
   } catch {
-    await fs.writeFile(STORE_PATH, JSON.stringify(DEFAULT_DATA, null, 2));
+    await fs.writeFile(STORE_PATH, JSON.stringify(buildDefaultData(), null, 2));
   }
 }
 
@@ -42,11 +65,12 @@ async function load() {
   await ensureStore();
   const json = await fs.readFile(STORE_PATH, 'utf8');
   const data = JSON.parse(json);
+  const fallback = buildDefaultData();
   return {
-    system: data.system || DEFAULT_DATA.system,
-    people: Array.isArray(data.people) ? data.people : DEFAULT_DATA.people,
-    dates: Array.isArray(data.dates) ? data.dates : DEFAULT_DATA.dates,
-    schedule: data.schedule && typeof data.schedule === 'object' ? data.schedule : DEFAULT_DATA.schedule,
+    system: data.system || fallback.system,
+    people: Array.isArray(data.people) ? data.people : fallback.people,
+    dates: Array.isArray(data.dates) ? data.dates : fallback.dates,
+    schedule: data.schedule && typeof data.schedule === 'object' ? data.schedule : fallback.schedule,
     shiftTimes: SHIFT_TIMES
   };
 }
