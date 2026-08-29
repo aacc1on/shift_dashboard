@@ -42,6 +42,24 @@ function updateUser(id, fields) {
   return getUserById(id);
 }
 
+// What deleting this user would cascade-delete (shifts, swaps, reports,
+// documents, chat) — used to refuse a hard delete once there's real history
+// to lose, steering toward deactivate instead. Zero across the board (a
+// never-used account) is the only case a hard delete is offered for.
+function getOwnedDataCounts(id) {
+  return {
+    shifts: db.prepare('SELECT COUNT(*) n FROM shifts WHERE user_id = ?').get(id).n,
+    swaps: db.prepare('SELECT COUNT(*) n FROM swaps WHERE requester_id = ? OR target_id = ?').get(id, id).n,
+    reports: db.prepare('SELECT COUNT(*) n FROM reports WHERE author_id = ?').get(id).n,
+    documents: db.prepare('SELECT COUNT(*) n FROM documents WHERE author_id = ?').get(id).n,
+    messages: db.prepare('SELECT COUNT(*) n FROM messages WHERE author_id = ? OR recipient_id = ?').get(id, id).n
+  };
+}
+
+function deleteUser(id) {
+  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+}
+
 function usernameExists(username) {
   return !!getUserByUsername(username);
 }
@@ -65,6 +83,8 @@ module.exports = {
   getUserById,
   createUser,
   updateUser,
+  deleteUser,
+  getOwnedDataCounts,
   usernameExists,
   suggestUsername
 };

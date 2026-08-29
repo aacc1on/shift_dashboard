@@ -66,4 +66,32 @@ router.post('/:id/activate', async (req, res) => {
   res.json(publicUser(updated));
 });
 
+// Permanent removal — only offered when the account has zero history to
+// lose (no shifts/swaps/reports/documents/messages). Anything with real
+// history should be deactivated instead, to keep the audit trail intact.
+router.delete('/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const user = usersModel.getUserById(id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+
+  if (user.role === 'lead') {
+    const activeLeads = usersModel.listUsers({ activeOnly: true, role: 'lead' });
+    if (user.active && activeLeads.length <= 1) {
+      return res.status(400).json({ error: 'Cannot delete the only remaining lead account.' });
+    }
+  }
+
+  const counts = usersModel.getOwnedDataCounts(id);
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  if (total > 0) {
+    return res.status(400).json({
+      error: `${user.display_name} has history attached (${Object.entries(counts).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${k}`).join(', ')}) — deactivate instead of deleting, to keep that record intact.`
+    });
+  }
+
+  usersModel.deleteUser(id);
+  await fs.appendFile(AUDIT_LOG_PATH, `[${new Date().toISOString()}] ${req.authUser} permanently deleted ${user.username} (no history attached)\n`);
+  res.json({ ok: true });
+});
+
 module.exports = router;

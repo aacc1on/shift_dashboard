@@ -30,6 +30,7 @@ async function loadUsers() {
           ${u.active
             ? `<button class="admin-btn danger" data-deactivate="${u.id}" data-display="${escapeHtml(u.display_name)}" type="button">Deactivate</button>`
             : `<button class="admin-btn" data-activate="${u.id}" data-display="${escapeHtml(u.display_name)}" type="button">Reactivate</button>`}
+          <button class="admin-btn danger" data-delete="${u.id}" data-display="${escapeHtml(u.display_name)}" type="button">Delete</button>
         </div>
       </div>
     `).join('');
@@ -42,6 +43,9 @@ async function loadUsers() {
     });
     box.querySelectorAll('[data-activate]').forEach((btn) => {
       btn.addEventListener('click', () => setActive(btn.dataset.activate, true, btn.dataset.display));
+    });
+    box.querySelectorAll('[data-delete]').forEach((btn) => {
+      btn.addEventListener('click', () => deleteUser(btn.dataset.delete, btn.dataset.display));
     });
   } catch {
     box.innerHTML = '<div class="empty-state">Failed to load users.</div>';
@@ -69,6 +73,18 @@ async function setActive(id, active, displayName) {
     const res = await fetch(`/api/users/${id}/${active ? 'activate' : 'deactivate'}`, { method: 'POST' });
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || `Failed to ${verb}.`);
+    loadUsers();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function deleteUser(id, displayName) {
+  if (!confirm(`Permanently delete ${displayName}? This cannot be undone. (Blocked automatically if they have any shifts, swaps, reports, documents, or messages — deactivate instead in that case.)`)) return;
+  try {
+    const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to delete.');
     loadUsers();
   } catch (err) {
     alert(err.message);
