@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SOC // SECURE ACCESS</title>
+  <title>SOCGrid // SECURE ACCESS</title>
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet" />
   <style>
@@ -80,6 +81,11 @@
       letter-spacing: 0.3em;
       line-height: 1;
       animation: flicker 4s infinite;
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+    }
+    .brand-logo-icon {
+      width: 0.85em; height: 0.85em;
+      filter: drop-shadow(0 0 10px var(--green));
     }
     @keyframes flicker {
       0%,95%,100% { opacity: 1; }
@@ -259,7 +265,7 @@
 
   <div class="login-wrap">
     <div class="login-brand">
-      <div class="brand-logo">SOC</div>
+      <div class="brand-logo"><img class="brand-logo-icon" src="/img/logo.svg" alt="" />SOCGrid</div>
       <div class="brand-sub">// SECURITY OPERATIONS CENTER //</div>
       <div class="brand-line"></div>
     </div>

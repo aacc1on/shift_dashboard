@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SOC // ADMIN</title>
+  <title>SOCGrid // ADMIN</title>
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
@@ -18,21 +19,32 @@
       <span class="hdr-badge orange">ACCESS:SECURE</span>
     </div>
     <div class="hdr-title">
-      <div class="logo-line">SOC</div>
+      <div class="logo-line"><img class="logo-icon" src="/img/logo.svg" alt="" />SOCGrid</div>
       <div class="sub-logo">// ADMIN CONTROL PANEL //</div>
     </div>
     <div class="hdr-right">
       <a class="hdr-badge green" href="/">← DASHBOARD</a>
+      <a class="hdr-badge" href="/chat">💬 CHAT</a>
+      <a class="hdr-badge" href="/documents">📄 DOCS</a>
+      <% if (authRole === 'lead') { %><a class="hdr-badge" href="/admin/users">👤 USERS</a><% } %>
       <a class="hdr-badge red" href="/logout">LOGOUT</a>
       <span class="hdr-badge" id="live-clock">--:--:--</span>
     </div>
   </header>
 
+  <% if (authRole === 'lead') { %>
   <div class="status-bar">
     <span class="blink-dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange)"></span>
     <span style="color:var(--orange)">ADMIN SESSION ACTIVE — CHANGES APPLY IMMEDIATELY</span>
     <span style="margin-left:auto; font-size:0.65rem; opacity:0.4; font-family:var(--font-mono);">AUTH: SESSION</span>
   </div>
+  <% } else { %>
+  <div class="status-bar">
+    <span class="blink-dot" style="background:var(--blue);box-shadow:0 0 8px var(--blue)"></span>
+    <span style="color:var(--blue)">VIEW ONLY — LEAD ROLE REQUIRED TO EDIT THE SCHEDULE</span>
+    <span style="margin-left:auto; font-size:0.65rem; opacity:0.4; font-family:var(--font-mono);">AUTH: SESSION</span>
+  </div>
+  <% } %>
 
   <section class="section">
     <div class="section-header">
@@ -45,30 +57,31 @@
       <div class="admin-sidebar">
         <div class="admin-sidebar-title">// ACTIONS</div>
 
+        <% const canEdit = authRole === 'lead'; %>
         <div class="sidebar-field">
           <label>// ADD OPERATOR</label>
-          <input id="new-person" type="text" placeholder="operator name" />
+          <input id="new-person" type="text" placeholder="operator name" <%= canEdit ? '' : 'disabled' %> />
         </div>
-        <button class="admin-btn" id="add-person-btn" type="button">+ Add Operator</button>
+        <button class="admin-btn" id="add-person-btn" type="button" <%= canEdit ? '' : 'disabled' %>>+ Add Operator</button>
 
         <div class="sidebar-field" style="margin-top:16px">
           <label>// ADD DATE</label>
-          <input id="new-date" type="date" />
+          <input id="new-date" type="date" <%= canEdit ? '' : 'disabled' %> />
         </div>
-        <button class="admin-btn" id="add-date-btn" type="button">+ Add Date</button>
+        <button class="admin-btn" id="add-date-btn" type="button" <%= canEdit ? '' : 'disabled' %>>+ Add Date</button>
 
         <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
           <div class="admin-sidebar-title">// AUTO-GENERATE</div>
           <div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-dim);line-height:1.5;margin-bottom:10px;">
-            Fills 5 shifts + 2 days off per week, never rotates backward (N→D, N→E, E→D blocked), balances totals across the team. Uses AI if OPENROUTER_API_KEY is configured, otherwise a built-in generator. Review before saving.
+            Only fills operators with no schedule at all in the selected range — anyone who already has shifts there (manually set or from a prior save) is left completely untouched. Fills 5 shifts + 2 days off per week, never rotates backward (N→D, N→E, E→D blocked), balances totals across the team. Uses AI if OPENROUTER_API_KEY is configured, otherwise a built-in generator. Review before saving.
           </div>
-          <button class="admin-btn ai" id="autogen-week-btn" type="button">🤖 Generate This Week</button>
-          <button class="admin-btn ai" id="autogen-month-btn" type="button">🤖 Generate Whole Month</button>
+          <button class="admin-btn ai" id="autogen-week-btn" type="button" <%= canEdit ? '' : 'disabled' %>>🤖 Generate This Week</button>
+          <button class="admin-btn ai" id="autogen-month-btn" type="button" <%= canEdit ? '' : 'disabled' %>>🤖 Generate Whole Month</button>
         </div>
 
         <div style="border-top:1px solid var(--border); margin:20px 0 16px;"></div>
 
-        <button class="admin-btn primary" id="save-admin-btn" type="button">▶ SAVE CHANGES</button>
+        <button class="admin-btn primary" id="save-admin-btn" type="button" <%= canEdit ? '' : 'disabled' %>>▶ SAVE CHANGES</button>
         <button class="admin-btn danger" id="reset-admin-btn" type="button">↺ Reload from Server</button>
         <a class="admin-btn" href="/api/export/csv" target="_blank" rel="noopener">⤓ Export CSV</a>
 
@@ -100,7 +113,8 @@
     </div>
   </section>
 
-  <script>window.SOC_INIT = { people: <%- JSON.stringify(people) %>, dates: <%- JSON.stringify(dates) %>, schedule: <%- JSON.stringify(schedule) %> };</script>
+  <script>window.SOC_INIT = { people: <%- JSON.stringify(people) %>, dates: <%- JSON.stringify(dates) %>, schedule: <%- JSON.stringify(schedule) %>, canEdit: <%= authRole === 'lead' %> };</script>
   <script src="/js/admin.js"></script>
+  <script src="/js/profile-widget.js"></script>
 </body>
 </html>

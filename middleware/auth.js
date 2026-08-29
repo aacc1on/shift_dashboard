@@ -1,33 +1,11 @@
 'use strict';
 
-const fs = require('fs').promises;
-const path = require('path');
 const crypto = require('crypto');
+const usersModel = require('../models/users');
+const { verifyPassword } = require('../lib/password');
 
-const USERS_PATH = path.join(__dirname, '..', 'users.json');
 const SESSION_SECRET = process.env.SESSION_SECRET || 'changeme';
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
-
-let users = [];
-let usersLoaded = false;
-
-function hashPassword(plain, salt = crypto.randomBytes(16).toString('hex')) {
-  const derived = crypto.scryptSync(String(plain), salt, 64).toString('hex');
-  return `scrypt:${salt}:${derived}`;
-}
-
-function verifyPassword(inputPassword, storedHash) {
-  if (typeof storedHash !== 'string' || !storedHash.startsWith('scrypt:')) return false;
-  const parts = storedHash.split(':');
-  if (parts.length !== 3) return false;
-
-  const salt = parts[1];
-  const expectedHex = parts[2];
-  const actual = crypto.scryptSync(String(inputPassword), salt, 64);
-  const expected = Buffer.from(expectedHex, 'hex');
-  if (expected.length !== actual.length) return false;
-  return crypto.timingSafeEqual(actual, expected);
-}
 
 function signSession(payload) {
   return crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('hex');
@@ -64,69 +42,56 @@ function parseAndVerifySession(rawCookie) {
   return { username };
 }
 
-async function ensureUsersLoaded() {
-  if (usersLoaded) return;
-
-  try {
-    const raw = await fs.readFile(USERS_PATH, 'utf8');
-    const parsed = JSON.parse(raw);
-    users = Array.isArray(parsed) ? parsed : [];
-  } catch {
-    users = [{ username: process.env.SOC_USER || 'admin', password: process.env.SOC_PASS || 'soc2026' }];
-  }
-
-  let changed = false;
-  users = users
-    .filter((u) => u && typeof u.username === 'string' && typeof u.password === 'string')
-    .map((u) => {
-      const username = u.username.trim();
-      if (!username) return null;
-      if (!u.password.startsWith('scrypt:')) {
-        changed = true;
-        return { username, password: hashPassword(u.password) };
-      }
-      return { username, password: u.password };
-    })
-    .filter(Boolean);
-
-  if (!users.length) {
-    users = [{ username: 'admin', password: hashPassword('soc2026') }];
-    changed = true;
-  }
-
-  if (changed) {
-    await fs.writeFile(USERS_PATH, JSON.stringify(users, null, 2));
-  }
-
-  usersLoaded = true;
+// Loads the full user record for a verified session, rejecting sessions for
+// accounts that were deactivated after the cookie was issued.
+function loadSessionUser(req) {
+  const parsed = parseAndVerifySession(req.cookies && req.cookies.soc_session);
+  if (!parsed) return null;
+  const user = usersModel.getUserByUsername(parsed.username);
+  if (!user || !user.active) return null;
+  return user;
 }
 
 function requireAuth(req, res, next) {
-  const parsed = parseAndVerifySession(req.cookies && req.cookies.soc_session);
-  if (parsed) {
-    req.authUser = parsed.username;
+  const user = loadSessionUser(req);
+  if (user) {
+    req.authUser = user.username;
+    req.authRole = user.role;
+    req.authUserId = user.id;
     return next();
   }
   const redirect = encodeURIComponent(req.originalUrl);
   res.redirect(`/login?redirect=${redirect}`);
 }
 
-async function handleLogin(req, res) {
-  await ensureUsersLoaded();
-  const { username, password, redirect } = req.body;
-  const user = users.find((u) => u.username === String(username || '').trim());
+function requireLead(req, res, next) {
+  requireAuth(req, res, () => {
+    if (req.authRole !== 'lead') {
+      return res.status(403).json({ error: 'Lead role required.' });
+    }
+    next();
+  });
+}
 
-  if (user && verifyPassword(password, user.password)) {
+function handleLogin(req, res) {
+  const { username, password, redirect } = req.body;
+  const user = usersModel.getUserByUsername(username);
+
+  if (user && user.active && verifyPassword(password, user.password_hash)) {
     const token = createSessionCookie(user.username);
     res.cookie('soc_session', token, {
       httpOnly: true,
       maxAge: SESSION_TTL_MS,
       sameSite: 'lax'
     });
-    return res.redirect(redirect || '/admin');
+    // No explicit redirect (e.g. logging in from /login directly, not bounced
+    // off a protected page): leads land on the management panel, everyone
+    // else just gets the dashboard.
+    const defaultLanding = user.role === 'lead' ? '/admin' : '/';
+    return res.redirect(redirect || defaultLanding);
   }
 
-  res.redirect(`/login?error=1&redirect=${encodeURIComponent(redirect || '/admin')}`);
+  res.redirect(`/login?error=1&redirect=${encodeURIComponent(redirect || '')}`);
 }
 
 function handleLogout(req, res) {
@@ -135,7 +100,7 @@ function handleLogout(req, res) {
 }
 
 function isAuthenticated(req) {
-  return !!parseAndVerifySession(req.cookies && req.cookies.soc_session);
+  return !!loadSessionUser(req);
 }
 
-module.exports = { requireAuth, handleLogin, handleLogout, isAuthenticated, ensureUsersLoaded };
+module.exports = { requireAuth, requireLead, handleLogin, handleLogout, isAuthenticated };

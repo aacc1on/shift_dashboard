@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOCGrid // USERS</title>
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="scanlines"></div>
+  <div class="grid-bg"></div>
+
+  <header class="hdr">
+    <div class="hdr-left">
+      <span class="hdr-badge">SYS:ADMIN</span>
+      <span class="hdr-badge orange">ACCESS:SECURE</span>
+    </div>
+    <div class="hdr-title">
+      <div class="logo-line"><img class="logo-icon" src="/img/logo.svg" alt="" />SOCGrid</div>
+      <div class="sub-logo">// USER MANAGEMENT //</div>
+    </div>
+    <div class="hdr-right">
+      <a class="hdr-badge green" href="/admin">← SCHEDULE</a>
+      <a class="hdr-badge red" href="/logout">LOGOUT</a>
+      <span class="hdr-badge" id="live-clock">--:--:--</span>
+    </div>
+  </header>
+
+  <div class="status-bar">
+    <span class="blink-dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange)"></span>
+    <span style="color:var(--orange)">LEAD-ONLY — PASSWORD RESETS ARE LOGGED</span>
+  </div>
+
+  <section class="section">
+    <div class="section-header"><span class="section-icon">▶</span> ACCOUNTS <span class="section-line"></span></div>
+    <div class="doc-list" id="user-list"><span style="opacity:.4">Loading…</span></div>
+  </section>
+
+  <div id="reset-result-backdrop" class="modal-backdrop" hidden>
+    <div class="modal-box">
+      <div class="section-header"><span class="section-icon">▶</span> PASSWORD RESET <span class="section-line"></span></div>
+      <p style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text-dim);margin-bottom:10px;">
+        New temporary password for <strong id="reset-username" style="color:var(--text)"></strong> — share it securely, it won't be shown again:
+      </p>
+      <div id="reset-password-display" style="font-family:var(--font-mono);font-size:1.1rem;color:var(--green);border:1px solid var(--border2);padding:10px;text-align:center;letter-spacing:0.1em;"></div>
+      <button class="admin-btn primary" id="reset-close-btn" type="button" style="margin-top:14px">Done</button>
+    </div>
+  </div>
+
+  <script src="/js/admin-users.js"></script>
+  <script src="/js/profile-widget.js"></script>
+</body>
+</html>

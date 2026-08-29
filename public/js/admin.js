@@ -2,10 +2,11 @@
 
 const VALID_CODES = ['D', 'E', 'N', 'X'];
 const COLORS = { D: '#00ff88', E: '#ffcc00', N: '#ff6b35', X: '#4a9eff' };
-let people = [];
+let people = []; // [{ id: number|null, name: string }] — id null means "not yet created"
 let dates = [];
-let schedule = {};
+let schedule = {}; // { [date]: { [personName]: code } } — keyed by CURRENT name, kept in sync on rename
 let weekOffset = 0;
+let canEdit = true;
 
 function getArmeniaNow() {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Yerevan' }));
@@ -100,26 +101,27 @@ function buildAdminTable() {
     return;
   }
 
+  const dis = canEdit ? '' : 'disabled';
   const headerRow = [
     '<tr>',
     '<th style="text-align:left;min-width:130px">OPERATOR</th>',
-    ...weekDates.map((date) => `<th class="${date === today ? 'today-col' : ''}"><input class="date-input-cell" type="date" value="${date}" data-date="${date}" /><button class="remove-btn" data-remove-date="${date}" title="Remove date">×</button></th>`),
+    ...weekDates.map((date) => `<th class="${date === today ? 'today-col' : ''}"><input class="date-input-cell" type="date" value="${date}" data-date="${date}" ${dis} /><button class="remove-btn" data-remove-date="${date}" title="Remove date" ${dis}>×</button></th>`),
     '</tr>'
   ].join('');
 
-  const bodyRows = people.map((person) => {
+  const bodyRows = people.map((p, rowIndex) => {
     const cells = weekDates.map((date) => {
-      const current = schedule[date]?.[person] || 'X';
+      const current = schedule[date]?.[p.name] || 'X';
       const opts = VALID_CODES.map((code) =>
         `<option value="${code}" ${code === current ? 'selected' : ''}>${code}</option>`
       ).join('');
-      return `<td class="${date === today ? 'today-col' : ''}"><select data-person="${person}" data-date="${date}">${opts}</select></td>`;
+      return `<td class="${date === today ? 'today-col' : ''}"><select data-person="${p.name}" data-date="${date}" ${dis}>${opts}</select></td>`;
     }).join('');
 
     return `<tr>
       <td>
-        <input class="person-name-input" value="${person}" data-person="${person}" />
-        <button class="remove-btn" data-remove-person="${person}" title="Remove operator">×</button>
+        <input class="person-name-input" value="${p.name}" data-row-index="${rowIndex}" ${dis} />
+        <button class="remove-btn" data-remove-person="${p.name}" title="Deactivate operator" ${dis}>×</button>
       </td>
       ${cells}
     </tr>`;
@@ -147,9 +149,8 @@ function refreshTable() {
 }
 
 function getFormData() {
-  // people/dates/schedule are kept live in memory across week navigation,
-  // so the save payload always covers the full month, not just the visible week.
-  if (new Set(people).size !== people.length) throw new Error('Operator names must be unique.');
+  const names = people.map((p) => p.name);
+  if (new Set(names).size !== names.length) throw new Error('Operator names must be unique.');
   if (new Set(dates).size !== dates.length) throw new Error('Dates must be unique.');
   const bad = dates.find((d) => !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d));
   if (bad) throw new Error('Invalid date format: ' + bad);
@@ -157,12 +158,19 @@ function getFormData() {
   const payloadSchedule = {};
   dates.forEach((date) => {
     payloadSchedule[date] = {};
-    people.forEach((person) => {
-      payloadSchedule[date][person] = schedule[date]?.[person] || 'X';
+    people.forEach((p) => {
+      payloadSchedule[date][p.name] = schedule[date]?.[p.name] || 'X';
     });
   });
 
-  return { people: [...people], dates: [...dates], schedule: payloadSchedule };
+  // people carry a stable id (or null for not-yet-created) so the server can
+  // tell "this operator was renamed" apart from "removed one, added another" —
+  // matters so a rename doesn't orphan shift history outside the loaded window.
+  return {
+    people: people.map((p) => ({ id: p.id, name: p.name })),
+    dates: [...dates],
+    schedule: payloadSchedule
+  };
 }
 
 async function runAutoGenerate(targetDates) {
@@ -173,7 +181,7 @@ async function runAutoGenerate(targetDates) {
     const res = await fetch('/api/admin/autogenerate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ people, dates: targetDates })
+      body: JSON.stringify({ people: people.map((p) => p.name), dates: targetDates })
     });
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || 'Auto-generate failed.');
@@ -199,7 +207,7 @@ function attachControls() {
   document.querySelectorAll('[data-remove-person]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const name = btn.dataset.removePerson;
-      people = people.filter((p) => p !== name);
+      people = people.filter((p) => p.name !== name);
       for (const d of dates) { if (schedule[d]) delete schedule[d][name]; }
       refreshTable();
     });
@@ -232,21 +240,22 @@ function attachControls() {
 
   document.querySelectorAll('.person-name-input').forEach((input) => {
     input.addEventListener('change', () => {
-      const old = input.dataset.person;
+      const rowIndex = Number(input.dataset.rowIndex);
+      const person = people[rowIndex];
+      if (!person) return;
+      const old = person.name;
       const val = input.value.trim();
       if (!val || val === old) return;
-      if (people.includes(val)) { setFeedback('Operator already exists.', 'error'); input.value = old; return; }
-      const idx = people.indexOf(old);
-      if (idx !== -1) {
-        people[idx] = val;
-        for (const d of dates) {
-          if (schedule[d] && Object.prototype.hasOwnProperty.call(schedule[d], old)) {
-            schedule[d][val] = schedule[d][old];
-            delete schedule[d][old];
-          }
+      if (people.some((p) => p.name === val)) { setFeedback('Operator already exists.', 'error'); input.value = old; return; }
+
+      person.name = val; // id stays the same — this is a rename, not a new operator
+      for (const d of dates) {
+        if (schedule[d] && Object.prototype.hasOwnProperty.call(schedule[d], old)) {
+          schedule[d][val] = schedule[d][old];
+          delete schedule[d][old];
         }
-        refreshTable();
       }
+      refreshTable();
     });
   });
 }
@@ -276,7 +285,7 @@ function bindAdminActions() {
         added++;
       }
       if (!schedule[date]) schedule[date] = {};
-      people.forEach((p) => { if (!schedule[date][p]) schedule[date][p] = 'X'; });
+      people.forEach((p) => { if (!schedule[date][p.name]) schedule[date][p.name] = 'X'; });
     });
     dates.sort();
     refreshTable();
@@ -290,12 +299,12 @@ function bindAdminActions() {
     const input = document.getElementById('new-person');
     const value = input.value.trim();
     if (!value) { setFeedback('Enter a name first.', 'error'); return; }
-    if (people.includes(value)) { setFeedback('Operator already exists.', 'error'); return; }
-    people.push(value);
+    if (people.some((p) => p.name === value)) { setFeedback('Operator already exists.', 'error'); return; }
+    people.push({ id: null, name: value });
     for (const d of dates) { if (schedule[d]) schedule[d][value] = 'X'; }
     input.value = '';
     refreshTable();
-    setFeedback(`Operator "${value}" added.`);
+    setFeedback(`Operator "${value}" added — a login account is created for them on Save.`);
   });
 
   document.getElementById('add-date-btn').addEventListener('click', () => {
@@ -306,7 +315,7 @@ function bindAdminActions() {
     dates.push(value);
     dates.sort();
     schedule[value] = {};
-    people.forEach((p) => { schedule[value][p] = 'X'; });
+    people.forEach((p) => { schedule[value][p.name] = 'X'; });
     input.value = '';
     refreshTable();
     setFeedback(`Date ${value} added.`);
@@ -323,11 +332,26 @@ function bindAdminActions() {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Save failed.');
-      // Sync local state
-      people = payload.people;
+
+      people = result.people.map((u) => ({ id: u.id, name: u.name }));
       dates = payload.dates;
-      schedule = payload.schedule;
-      setFeedback('Changes saved. Dashboard will reflect updates on next refresh.');
+      // Re-key the schedule onto whatever final names the server settled on
+      // (covers the brand-new-operator case, where id was null pre-save).
+      const byOldName = {};
+      payload.people.forEach((p, i) => { byOldName[p.name] = result.people[i]?.name || p.name; });
+      const rekeyed = {};
+      Object.entries(payload.schedule).forEach(([date, row]) => {
+        rekeyed[date] = {};
+        Object.entries(row).forEach(([name, code]) => { rekeyed[date][byOldName[name] || name] = code; });
+      });
+      schedule = rekeyed;
+
+      let msg = 'Changes saved. Dashboard will reflect updates on next refresh.';
+      if (result.createdAccounts && result.createdAccounts.length) {
+        const lines = result.createdAccounts.map((a) => `${a.username} / ${a.tempPassword} (${a.displayName})`);
+        msg += ` New account(s): ${lines.join(', ')} — share these temp passwords securely.`;
+      }
+      setFeedback(msg);
     } catch (err) {
       setFeedback(err.message, 'error');
     }
@@ -350,9 +374,11 @@ function bindAdminActions() {
 
 async function initialize() {
   const init = window.SOC_INIT || {};
-  people = Array.isArray(init.people) ? [...init.people] : [];
+  people = Array.isArray(init.people) ? init.people.map((p) => ({ id: p.id, name: p.name })) : [];
   dates = Array.isArray(init.dates) ? [...init.dates] : [];
   schedule = typeof init.schedule === 'object' ? JSON.parse(JSON.stringify(init.schedule)) : {};
+  canEdit = init.canEdit !== false;
+  document.getElementById('week-fill').disabled = !canEdit;
 
   refreshTable();
   bindAdminActions();
@@ -376,14 +402,9 @@ async function loadPendingSwaps() {
       box.innerHTML = '<span style="opacity:.5">No pending swaps</span>';
       return;
     }
-    box.innerHTML = pending.map((s) => `<div style="border:1px solid var(--border);padding:6px;margin-bottom:6px;">${s.requester} ${s.date} ${s.fromCode}→${s.wantCode}<div style="margin-top:4px;"><button class="admin-btn" data-swap-act="approve" data-swap-id="${s.id}" type="button">Approve</button><button class="admin-btn danger" data-swap-act="reject" data-swap-id="${s.id}" type="button">Reject</button></div></div>`).join('');
-    box.querySelectorAll('[data-swap-id]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        await fetch(`/api/swaps/${btn.dataset.swapId}/${btn.dataset.swapAct}`, { method: 'POST' });
-        await loadPendingSwaps();
-        setFeedback(`Swap ${btn.dataset.swapAct}d.`);
-      });
-    });
+    // Read-only oversight — only the requested colleague can accept/reject
+    // (no lead approval needed), so this is visibility, not an action panel.
+    box.innerHTML = pending.map((s) => `<div style="border:1px solid var(--border);padding:6px;margin-bottom:6px;">${s.requester_name} → ${s.target_name}: ${s.shift_type} shift, ${new Date(s.start_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Yerevan' })}</div>`).join('');
   } catch {
     box.innerHTML = '<span style="color:var(--red)">Failed to load swaps</span>';
   }

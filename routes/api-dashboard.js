@@ -1,107 +1,105 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
-const store = require('../data-store');
+const usersModel = require('../models/users');
+const shiftsModel = require('../models/shifts');
+const { nowIso } = require('../lib/shift-times');
+const { requireAuth } = require('../middleware/auth');
 
-function getArmeniaNow() {
-  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Yerevan' }));
+// Which shift type SHOULD be running right now, purely by time of day
+// (D 09-17, E 17-01, N 01-09 Yerevan). Used so "uncovered" only fires for
+// the window actually happening now — not for an evening shift that simply
+// hasn't started yet, or a night shift that already finished this morning.
+function currentExpectedType(iso) {
+  const yerevanHour = new Date(new Date(iso).getTime() + 4 * 3600000).getUTCHours();
+  if (yerevanHour >= 9 && yerevanHour < 17) return 'D';
+  if (yerevanHour >= 17 || yerevanHour < 1) return 'E';
+  return 'N';
 }
 
-function padZ(value) {
-  return String(value).padStart(2, '0');
-}
+function buildPersonStatus(user, now) {
+  const current = shiftsModel.getCurrentShiftForUser(user.id, now);
+  const next = shiftsModel.getNextShiftForUser(user.id, now);
+  const nowMs = new Date(now).getTime();
 
-function dateStr(date) {
-  return `${date.getFullYear()}-${padZ(date.getMonth() + 1)}-${padZ(date.getDate())}`;
-}
-
-function getShiftWindow(dateObj, shiftCode) {
-  const shift = store.SHIFT_TIMES[shiftCode];
-  if (!shift || !shift.start) return null;
-  const [sh, sm] = shift.start.split(':').map(Number);
-  const [eh, em] = shift.end.split(':').map(Number);
-
-  const start = new Date(dateObj);
-  start.setHours(sh, sm, 0, 0);
-
-  const end = new Date(dateObj);
-  end.setHours(eh, em, 0, 0);
-  if (end <= start) end.setDate(end.getDate() + 1);
-
-  return { start, end };
-}
-
-function getPersonStatus(person, now, schedule) {
-  let current = null;
-  let next = null;
-
-  for (let offset = -1; offset <= 14; offset++) {
-    const day = new Date(now);
-    day.setDate(day.getDate() + offset);
-    const key = dateStr(day);
-    const code = schedule[key]?.[person];
-    if (!code || code === 'X') continue;
-
-    const window = getShiftWindow(day, code);
-    if (!window) continue;
-
-    const nowMs = now.getTime();
-    if (window.start.getTime() <= nowMs && nowMs < window.end.getTime()) {
-      current = {
-        dateStr: key,
-        code,
-        ...window,
-        elapsed: nowMs - window.start.getTime(),
-        remaining: window.end.getTime() - nowMs,
-        total: window.end.getTime() - window.start.getTime(),
-        progress: Math.floor(((nowMs - window.start.getTime()) / (window.end.getTime() - window.start.getTime())) * 100)
-      };
-    } else if (window.start.getTime() > nowMs && !next) {
-      next = {
-        dateStr: key,
-        code,
-        ...window,
-        startsIn: window.start.getTime() - nowMs
-      };
-    }
+  let currentOut = null;
+  if (current) {
+    const startMs = new Date(current.start_at).getTime();
+    const endMs = new Date(current.end_at).getTime();
+    currentOut = {
+      code: current.type,
+      start: current.start_at,
+      end: current.end_at,
+      elapsed: nowMs - startMs,
+      remaining: endMs - nowMs,
+      total: endMs - startMs,
+      progress: Math.floor(((nowMs - startMs) / (endMs - startMs)) * 100)
+    };
   }
 
-  const todayCode = schedule[dateStr(now)]?.[person] || 'X';
-  return { todayCode, current, next };
+  let nextOut = null;
+  if (next) {
+    nextOut = {
+      code: next.type,
+      start: next.start_at,
+      end: next.end_at,
+      startsIn: new Date(next.start_at).getTime() - nowMs
+    };
+  }
+
+  return {
+    todayCode: currentOut ? currentOut.code : 'X',
+    current: currentOut,
+    next: nextOut
+  };
 }
 
-router.get('/status', async (req, res) => {
-  const data = await store.load();
-  const now = getArmeniaNow();
+router.get('/status', requireAuth, (req, res) => {
+  const now = nowIso();
+  const users = usersModel.listUsers({ activeOnly: true, role: 'member' });
+
   const responseData = {
-    system: data.system,
-    serverTime: now.toISOString(),
+    system: 'SOCGrid',
+    serverTime: now,
     data: {},
     warnings: []
   };
 
-  const todayKey = dateStr(now);
-  const scheduledToday = data.schedule[todayKey] || {};
-  const scheduledPresence = { D: 0, E: 0, N: 0 };
-  for (const code of Object.values(scheduledToday)) {
-    if (scheduledPresence[code] !== undefined) scheduledPresence[code] += 1;
-  }
-
   const coverage = { D: 0, E: 0, N: 0 };
 
-  for (const person of data.people) {
-    responseData.data[person] = getPersonStatus(person, now, data.schedule);
-    const code = responseData.data[person].current && responseData.data[person].current.code;
-    if (coverage[code] !== undefined) coverage[code] += 1;
-  }
-
-  const warningText = { D: 'DAY SHIFT UNCOVERED', E: 'EVENING SHIFT UNCOVERED', N: 'NIGHT SHIFT UNCOVERED' };
-  ['D', 'E', 'N'].forEach((code) => {
-    if (scheduledPresence[code] > 0 && coverage[code] === 0) {
-      responseData.warnings.push({ shift: code, message: warningText[code] });
+  users.forEach((user) => {
+    const status = buildPersonStatus(user, now);
+    responseData.data[user.display_name] = status;
+    if (status.current && coverage[status.current.code] !== undefined) {
+      coverage[status.current.code] += 1;
     }
   });
 
+  // Only the shift type actually happening right now can be "uncovered" —
+  // checking every type someone happened to be assigned sometime today
+  // produced false alarms for shifts that hadn't started yet or already ended.
+  const warningText = { D: 'DAY SHIFT UNCOVERED', E: 'EVENING SHIFT UNCOVERED', N: 'NIGHT SHIFT UNCOVERED' };
+  const expected = currentExpectedType(now);
+  if (coverage[expected] === 0) {
+    responseData.warnings.push({ shift: expected, message: warningText[expected] });
+  }
+
   res.json(responseData);
+});
+
+// Powers the swap-request form: shifts the logged-in user could offer, and
+// the colleagues they could offer them to.
+router.get('/my-shifts', requireAuth, (req, res) => {
+  const shifts = shiftsModel.getUpcomingShiftsForUser(req.authUserId, nowIso());
+  res.json(shifts.map((s) => ({ id: s.id, type: s.type, start: s.start_at, end: s.end_at })));
+});
+
+router.get('/colleagues', requireAuth, (req, res) => {
+  const colleagues = usersModel.listUsers({ activeOnly: true, role: 'member' })
+    .filter((u) => u.id !== req.authUserId)
+    .map((u) => ({ id: u.id, name: u.display_name }));
+  res.json(colleagues);
 });
 
 module.exports = router;
