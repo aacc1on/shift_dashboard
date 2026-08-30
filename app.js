@@ -10,6 +10,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
 const documentsRoutes = require('./routes/documents');
 const chatRoutes = require('./routes/chat');
+const networkRoutes = require('./routes/network');
 const apiDashboardRoutes = require('./routes/api-dashboard');
 const apiAdminRoutes = require('./routes/api-admin');
 const apiSwapsRoutes = require('./routes/api-swaps');
@@ -21,8 +22,12 @@ const apiMeRoutes = require('./routes/api-me');
 const apiTeamRoutes = require('./routes/api-team');
 const apiMessagesRoutes = require('./routes/api-messages');
 const apiAnnouncementsRoutes = require('./routes/api-announcements');
+const apiNetworkRoutes = require('./routes/api-network');
+const apiBackupRoutes = require('./routes/api-backup');
 const { handleLogin, handleLogout } = require('./middleware/auth');
 const { ensureDefaultAdmin } = require('./lib/bootstrap');
+const { backupDatabase } = require('./lib/backup');
+const { runDriveBackup, isDriveConfigured } = require('./lib/drive-backup');
 
 const fs = require('fs');
 const createdAdmin = ensureDefaultAdmin();
@@ -60,6 +65,7 @@ app.use('/', dashboardRoutes);
 app.use('/admin', adminRoutes);
 app.use('/documents', documentsRoutes);
 app.use('/chat', chatRoutes);
+app.use('/network', networkRoutes);
 app.use('/api/dashboard', apiDashboardRoutes);
 app.use('/api/admin', apiAdminRoutes);
 app.use('/api/swaps', apiSwapsRoutes);
@@ -71,6 +77,8 @@ app.use('/api/me', apiMeRoutes);
 app.use('/api/team', apiTeamRoutes);
 app.use('/api/messages', apiMessagesRoutes);
 app.use('/api/announcements', apiAnnouncementsRoutes);
+app.use('/api/network', apiNetworkRoutes);
+app.use('/api/backup', apiBackupRoutes);
 
 app.use((req, res) => {
   res.status(404).send('Not Found');
@@ -81,3 +89,23 @@ app.listen(PORT, () => {
   console.log(`\x1b[32m[SOCGrid]\x1b[0m http://localhost:${PORT}`);
   console.log(`\x1b[33m[SOCGrid]\x1b[0m Admin: http://localhost:${PORT}/admin`);
 });
+
+// Local DB snapshot on every boot (safe hot-copy via better-sqlite3's own
+// backup API), then daily — plus an off-site copy to Google Drive once that's
+// configured (see lib/drive-backup.js / scripts/google-auth-setup.js).
+async function runScheduledBackups() {
+  try {
+    await backupDatabase();
+  } catch (err) {
+    console.error('[SOCGrid] Local DB backup failed:', err.message);
+  }
+  if (isDriveConfigured()) {
+    try {
+      await runDriveBackup();
+    } catch (err) {
+      console.error('[SOCGrid] Google Drive backup failed:', err.message);
+    }
+  }
+}
+runScheduledBackups();
+setInterval(runScheduledBackups, 24 * 3600 * 1000);

@@ -283,6 +283,26 @@ function bindAdminActions() {
     });
   }
 
+  const backupBtn = document.getElementById('backup-now-btn');
+  if (backupBtn) {
+    backupBtn.addEventListener('click', async () => {
+      backupBtn.disabled = true;
+      backupBtn.textContent = 'Backing up…';
+      try {
+        const res = await fetch('/api/backup/run', { method: 'POST' });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Backup failed.');
+        setFeedback(result.note || 'Backup complete.');
+      } catch (err) {
+        setFeedback(err.message, 'error');
+      } finally {
+        backupBtn.disabled = false;
+        backupBtn.textContent = '💾 Backup Now';
+        loadBackupStatus();
+      }
+    });
+  }
+
   document.getElementById('week-prev').addEventListener('click', () => {
     weekOffset -= 1;
     refreshTable();
@@ -406,6 +426,7 @@ async function initialize() {
   bindAdminActions();
   setFeedback('Admin panel ready.');
   await loadPendingSwaps();
+  await loadBackupStatus();
 
   const clockEl = document.getElementById('live-clock');
   const tick = () => clockEl.textContent = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Yerevan', hour12: false });
@@ -413,6 +434,29 @@ async function initialize() {
 }
 
 initialize().catch((err) => setFeedback(err.message, 'error'));
+
+async function loadBackupStatus() {
+  const box = document.getElementById('backup-status');
+  if (!box) return;
+  try {
+    const res = await fetch('/api/backup/status');
+    const status = await res.json();
+    const local = 'Local snapshots: daily, kept 30 days.';
+    let drive;
+    if (!status.driveConfigured) {
+      drive = 'Google Drive: not connected. See scripts/google-auth-setup.js.';
+    } else if (status.lastDriveBackup) {
+      const t = new Date(status.lastDriveBackup.time).toLocaleString('en-GB', { timeZone: 'Asia/Yerevan' });
+      drive = `Google Drive: last synced ${t} (${status.lastDriveBackup.documentCount} docs).`;
+    } else {
+      drive = 'Google Drive: connected, first sync pending.';
+    }
+    box.innerHTML = `${local}<br/>${drive}`;
+  } catch {
+    box.innerHTML = '<span style="color:var(--red)">Failed to load backup status</span>';
+  }
+}
+
 async function loadPendingSwaps() {
   const box = document.getElementById('pending-swaps');
   if (!box) return;

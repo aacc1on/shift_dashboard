@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOCGrid // NETWORK</title>
+  <script>if(localStorage.getItem('soc_theme')==='light'){document.documentElement.classList.add('prelight');document.addEventListener('DOMContentLoaded',()=>document.body.classList.add('light'));}</script>
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/vendor/drawflow/drawflow.min.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/network.css" />
+</head>
+<body>
+<div class="scanlines"></div><div class="grid-bg"></div>
+<header class="hdr">
+  <div class="hdr-left"><span class="hdr-badge">SYS:ONLINE</span></div>
+  <div class="hdr-title"><div class="logo-line"><img class="logo-icon" src="/img/logo.svg" alt="" />SOCGrid</div><div class="sub-logo">// NETWORK TOPOLOGY //</div></div>
+  <div class="hdr-right">
+    <button class="hdr-badge" id="theme-toggle" type="button">☀/🌙</button>
+    <a class="hdr-badge" href="/chat">💬 CHAT</a>
+    <a class="hdr-badge" href="/documents">📄 DOCS</a>
+    <a class="hdr-badge green" href="/">◀ DASHBOARD</a>
+    <% if (authRole === 'lead') { %><a class="hdr-badge green" href="/admin">⚙ ADMIN</a><% } %>
+    <span class="hdr-badge" id="live-clock">--:--:--</span>
+  </div>
+</header>
+
+<section class="section">
+  <div class="net-layout">
+    <div class="net-sidebar">
+      <div class="admin-sidebar-title">// DIAGRAMS</div>
+      <div id="diagram-list" class="net-diagram-list"><span style="opacity:.4">Loading…</span></div>
+      <button class="admin-btn primary" id="new-diagram-btn" type="button" style="margin-top:12px">+ New Diagram</button>
+
+      <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+        <div class="admin-sidebar-title">// PALETTE</div>
+        <div class="net-palette" id="net-palette">
+          <div class="net-node-tpl" draggable="true" data-icon="🖥" data-label="Server">🖥 Server</div>
+          <div class="net-node-tpl" draggable="true" data-icon="🧱" data-label="Firewall">🧱 Firewall</div>
+          <div class="net-node-tpl" draggable="true" data-icon="📡" data-label="Router">📡 Router</div>
+          <div class="net-node-tpl" draggable="true" data-icon="🔀" data-label="Switch">🔀 Switch</div>
+          <div class="net-node-tpl" draggable="true" data-icon="💻" data-label="Workstation">💻 Workstation</div>
+          <div class="net-node-tpl" draggable="true" data-icon="☁" data-label="Cloud / WAN">☁ Cloud / WAN</div>
+          <div class="net-node-tpl" draggable="true" data-icon="🗄" data-label="Database">🗄 Database</div>
+          <div class="net-node-tpl" draggable="true" data-icon="🔒" data-label="VPN">🔒 VPN</div>
+          <div class="net-node-tpl" draggable="true" data-icon="📶" data-label="Access Point">📶 Access Point</div>
+          <div class="net-node-tpl" draggable="true" data-icon="▢" data-label="Device">▢ Device</div>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--text-dim);line-height:1.5;margin-top:10px;">
+          Drag a shape onto the canvas. Double-click a node to rename it. Drag from a node's edge dot to another node to connect them.
+        </div>
+      </div>
+    </div>
+
+    <div class="net-main">
+      <div class="net-toolbar">
+        <input id="diagram-title" type="text" placeholder="diagram title…" disabled />
+        <button class="admin-btn" id="net-zoom-out" type="button" title="Zoom out">−</button>
+        <button class="admin-btn" id="net-zoom-reset" type="button" title="Reset zoom">⊙</button>
+        <button class="admin-btn" id="net-zoom-in" type="button" title="Zoom in">+</button>
+        <button class="admin-btn danger" id="net-clear-btn" type="button" disabled>🗑 Clear</button>
+        <button class="admin-btn danger" id="net-delete-btn" type="button" disabled>✕ Delete Diagram</button>
+        <button class="admin-btn primary" id="net-save-btn" type="button" disabled>▶ SAVE</button>
+        <span id="net-save-status" class="net-save-status"></span>
+      </div>
+      <div id="drawflow" class="net-canvas"></div>
+      <div id="net-empty-state" class="net-empty-state">Select or create a diagram to start drawing.</div>
+    </div>
+  </div>
+</section>
+
+<script src="/vendor/drawflow/drawflow.min.js"></script>
+<script src="/js/profile-widget.js"></script>
+<script src="/js/network.js"></script>
+</body>
+</html>

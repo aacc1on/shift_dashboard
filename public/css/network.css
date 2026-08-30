@@ -1,0 +1,203 @@
+.net-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.net-sidebar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+.net-diagram-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.net-diagram-item {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.net-diagram-item:hover { border-color: var(--border2); background: var(--panel2); }
+.net-diagram-item.active { border-color: var(--green); background: var(--green-dim); }
+
+.net-diagram-item-title {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.net-diagram-item-meta {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.net-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.net-node-tpl {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 10px;
+  cursor: grab;
+  user-select: none;
+}
+.net-node-tpl:hover { border-color: var(--green); }
+.net-node-tpl:active { cursor: grabbing; }
+
+.net-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.net-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.net-toolbar #diagram-title {
+  flex: 1;
+  min-width: 160px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 4px;
+}
+.net-toolbar #diagram-title:disabled { opacity: 0.4; }
+
+.net-save-status {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--green);
+}
+.net-save-status.error { color: var(--red); }
+
+#net-save-btn.pending {
+  box-shadow: 0 0 0 2px var(--green-dim);
+}
+
+.net-canvas {
+  position: relative;
+  width: 100%;
+  height: 65vh;
+  min-height: 420px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: -1px -1px;
+}
+
+.net-empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  pointer-events: none;
+  margin-top: -65vh;
+  height: 65vh;
+  min-height: 420px;
+}
+.net-main { position: relative; }
+
+/* --- Drawflow theme overrides --- */
+.drawflow .drawflow-node {
+  background: var(--panel2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 10px 14px;
+  width: auto;
+  min-width: 120px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+.drawflow .drawflow-node.selected {
+  background: var(--panel2);
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px var(--green-dim);
+}
+.drawflow .drawflow-node .input,
+.drawflow .drawflow-node .output {
+  background: var(--panel);
+  border: 2px solid var(--green);
+  width: 14px;
+  height: 14px;
+}
+.drawflow .drawflow-node .input { left: -20px; background: var(--blue); border-color: var(--blue); }
+.drawflow .connection .main-path {
+  stroke: var(--green);
+  stroke-width: 3px;
+  opacity: 0.75;
+}
+.drawflow .connection .main-path:hover { stroke: var(--yellow); cursor: pointer; }
+.drawflow .connection .main-path.selected { stroke: var(--yellow); }
+.drawflow .connection .point { fill: var(--panel); stroke: var(--green); }
+.drawflow .connection .point.selected,
+.drawflow .connection .point:hover { fill: var(--yellow); }
+.drawflow-delete {
+  background: var(--red);
+  border-color: var(--panel);
+}
+
+.net-node-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+}
+.net-node-icon { font-size: 1.1rem; }
+.net-node-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  cursor: text;
+}
+.net-node-del {
+  margin-left: 8px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+.net-node-del:hover { opacity: 1; color: var(--red); }
+
+@media (max-width: 900px) {
+  .net-layout { grid-template-columns: 1fr; }
+  .net-sidebar { position: static; }
+}

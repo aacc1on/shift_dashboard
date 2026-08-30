@@ -26,6 +26,7 @@
       <a class="hdr-badge green" href="/">← DASHBOARD</a>
       <a class="hdr-badge" href="/chat">💬 CHAT</a>
       <a class="hdr-badge" href="/documents">📄 DOCS</a>
+      <a class="hdr-badge" href="/network">🌐 NETWORK</a>
       <% if (authRole === 'lead') { %><a class="hdr-badge" href="/admin/users">👤 USERS</a><% } %>
       <a class="hdr-badge red" href="/logout">LOGOUT</a>
       <span class="hdr-badge" id="live-clock">--:--:--</span>
@@ -89,6 +90,12 @@
             <input id="announcement-input" type="text" maxlength="300" placeholder="e.g. All hands — incident briefing in 10 min" />
           </div>
           <button class="admin-btn ai" id="announcement-send-btn" type="button" style="margin-top:8px">📢 Broadcast</button>
+        </div>
+
+        <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+          <div class="admin-sidebar-title">// BACKUP</div>
+          <div id="backup-status" style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-dim);line-height:1.6;margin-bottom:10px;">Loading…</div>
+          <button class="admin-btn" id="backup-now-btn" type="button">💾 Backup Now</button>
         </div>
         <% } %>
 

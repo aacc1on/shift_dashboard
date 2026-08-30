@@ -183,6 +183,19 @@ db.exec(`
     content TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  -- Network topology diagrams (Drawflow canvases). "data" is Drawflow's own
+  -- exported JSON blob, stored opaque -- the app never inspects its shape.
+  -- Team-shared and team-editable, same trust level as chat.
+  CREATE TABLE IF NOT EXISTS network_diagrams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    data TEXT NOT NULL DEFAULT '{}',
+    author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 if (!columnExists('messages', 'recipient_id')) {

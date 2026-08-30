@@ -1,6 +1,6 @@
 # SOCGrid
 
-Shift-handover dashboard for a 24/7 SOC (or any shift-based) team — live duty board, schedule editor with fair AI-assisted rotation, swap requests, mandatory handover reports, a documents repository with access control, team chat, and broadcast announcements.
+Shift-handover dashboard for a 24/7 SOC (or any shift-based) team — live duty board, schedule editor with fair AI-assisted rotation, swap requests, mandatory handover reports, a documents repository with access control, team chat, broadcast announcements, network diagrams, and automatic backups.
 
 ## Features
 
@@ -12,6 +12,8 @@ Shift-handover dashboard for a 24/7 SOC (or any shift-based) team — live duty 
 - **Team chat** — a shared channel plus private direct messages.
 - **Broadcast announcements** — a lead can flash a message across every dashboard.
 - **User management** — add/remove team members, reset passwords, activate/deactivate, all from the UI.
+- **Network diagrams** — a shared canvas (drag-and-drop nodes, connect them) for sketching network topology, saved alongside everything else.
+- **Automatic backups** — a safe hot-copy of the database on every boot and daily thereafter, plus an optional off-site sync of documents + the database to Google Drive.
 
 ## Getting started
 
@@ -36,9 +38,185 @@ Node.js, Express, EJS, SQLite (`better-sqlite3`).
 docker compose up --build
 ```
 
-## Deployment
+Uses the included `Dockerfile` + `docker-compose.yml`. `./data` is mounted as a volume, so the database survives container rebuolds/restarts the same way it does on a bare-metal install.
 
-Ships with a `Dockerfile` for Render or any Docker-based PaaS. See `.env.example` for environment variables — `DATA_DIR` for where the SQLite database lives (point it at a persistent volume in production), `SOC_USER`/`SOC_PASS` for the initial account, and `OPENROUTER_API_KEY` to enable AI-assisted schedule generation (falls back to a deterministic fair-rotation generator without it).
+---
+
+## Running directly on a server (Windows or any OS, no Docker)
+
+This is the setup for a small team's own machine — plain `node`/`nodemon` in a
+console window, no process manager, no container.
+
+### Why `git pull` never touches your data
+
+The database (`data/baton.db`) lives inside `data/`, and `data/` is in
+`.gitignore`. `git pull` only ever touches files git tracks, so it can never
+overwrite, delete, or reset anything in `data/` — new users, schedule
+changes, chat messages, documents, everything, survive every update
+untouched. The same is true of `audit.log`.
+
+The only two things that make an update risky are things `git` doesn't
+control:
+
+- **Someone manually deletes or edits `data/`** — not a `git` operation, so
+  no `git` safeguard helps here; that's what the backups below are for.
+- **A code change alters the database schema.** Every migration in `db.js`
+  is written to be non-destructive on an existing database (it checks
+  whether a column/table already exists before adding it, and never drops
+  data) — keep any future schema change to that same pattern.
+
+### First-time setup
+
+```
+git clone <your fork's URL> socgrid
+cd socgrid
+npm install
+copy .env.example .env
+notepad .env    :: fill in SOC_USER / SOC_PASS / SESSION_SECRET
+npm run dev
+```
+
+Leave that console window open — this is the running server. `npm run dev`
+uses `nodemon`, which auto-restarts the process whenever a source file
+changes (see `nodemon.json` — it explicitly ignores `data/`, `*.db*` and
+`audit.log`, so the frequent writes those files get during normal use never
+trigger a restart).
+
+### Updating to new code
+
+In the same directory, with the server running:
+
+```
+git pull
+npm install
+```
+
+- `git pull` updates the source files. Since `nodemon` is watching them, it
+  restarts the server automatically within a second or two — you don't need
+  to stop it yourself.
+- Run `npm install` whenever `package.json` changed (new dependency) — it
+  won't run itself. If nothing but `.js`/`.ejs` files changed, you can skip
+  it.
+- `data/` is never part of `git pull` — nothing to worry about there.
+
+If you'd rather not leave a console window open long-term (e.g. so it
+survives closing the RDP session or a reboot), the straightforward next step
+is wrapping the same `npm start` command as a Windows Service with
+[node-windows](https://github.com/coreybutler/node-windows) or
+[NSSM](https://nssm.cc/).
+
+### Backups
+
+Two layers, both automatic, no configuration required for the first one:
+
+1. **Local snapshots** — a consistent hot-copy of `data/baton.db` is taken
+   on every server boot and once every 24 hours after that, kept in
+   `data/backups/` (last 30 kept, older ones pruned automatically). See
+   `lib/backup.js`. Since `data/` isn't in git, remember these backups live
+   only on this machine — copy `data/backups/` elsewhere periodically if you
+   want protection against the whole machine failing.
+2. **Google Drive backup** (optional, off-site) — see below.
+
+A lead can also trigger an on-demand backup of both kinds from **Admin →
+sidebar → Backup Now**, and see when the last one ran.
+
+### Google Drive integration — step by step
+
+Mirrors every document (as readable `.md` files) plus the latest database
+snapshot into a "SOCGrid Backups" folder in a Google Drive account of your
+choosing — so if this machine is ever lost, the documents (and, from the
+`.db` file, everything else) are recoverable from Drive. It only ever
+requests access to files it creates itself (the `drive.file` OAuth scope) —
+never the rest of that Drive account.
+
+**1. Create a Google Cloud project**
+
+Go to the [Google Cloud Console](https://console.cloud.google.com/) →
+top-left project dropdown → **New Project**. Any name is fine (e.g.
+"SOCGrid Backups"). Wait for it to finish creating, then make sure it's
+selected in that same dropdown.
+
+**2. Enable the Drive API**
+
+Left sidebar (or search bar) → **APIs & Services → Library** → search
+"Google Drive API" → open it → **Enable**.
+
+**3. Configure the OAuth consent screen** (first time only)
+
+**APIs & Services → OAuth consent screen**. Choose **External** unless you
+have a Google Workspace organization (then Internal is fine). Fill in an
+app name (e.g. "SOCGrid") and your email in the required fields, save
+through the remaining steps with defaults. On the **Test users** step, add
+the Google account you intend to back up to — while the app is in "Testing"
+mode only accounts listed here can authorize it, which is fine for this use
+case (nobody else needs to).
+
+**4. Create the OAuth client**
+
+**APIs & Services → Credentials → + Create Credentials → OAuth client ID**.
+- Application type: **Desktop app**
+- Name: anything (e.g. "SOCGrid server")
+
+Click Create — a dialog shows a **Client ID** and **Client Secret**. Copy
+both.
+
+**5. Add the credentials to `.env`**
+
+```
+GOOGLE_CLIENT_ID=your-client-id-here
+GOOGLE_CLIENT_SECRET=your-client-secret-here
+```
+
+**6. Run the one-time connection script**
+
+```
+node scripts/google-auth-setup.js
+```
+
+It prints a URL — open it in a browser, sign in with the Google account
+backups should land in (the one you added as a test user in step 3),
+approve access, and it'll show you a code. Paste that code back into the
+terminal. This writes `data/google-token.json`, which is what actually
+turns the feature on.
+
+**7. Restart the server** so it picks up the new token — from then on,
+backups to Drive run automatically once a day (plus on-demand via **Admin →
+Backup Now**), no further logins needed. `data/google-token.json` is
+gitignored, same as the rest of `data/` — it never leaves this machine
+through git.
+
+If `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` aren't set, or step 6 hasn't
+been run yet, the app just skips the Drive step silently and keeps doing
+local backups only — nothing breaks, and **Admin → Backup Now** will tell
+you Drive isn't connected.
+
+**What ends up in Drive:** a "SOCGrid Backups" folder containing
+`database-latest.db` (a full snapshot, overwritten in place each run — open
+its revision history in Drive's UI to see older versions) and a
+`documents/` subfolder with one `.md` file per document (title, tags,
+visibility, author in the frontmatter, then its content) — browsable and
+readable directly in Drive, not just a restorable blob.
+
+## Network diagrams
+
+**Network** (top nav on any page) opens a shared drag-and-drop canvas for
+sketching topology — drag a shape (server, firewall, router, switch,
+workstation, cloud/WAN, database, VPN, access point, generic device) from
+the palette onto the canvas, drag from one node's edge dot to another to
+connect them, double-click a node's label to rename it. Keep as many
+separate named diagrams as you want (e.g. "Office LAN", "DMZ", "VPN
+topology") — pick one from the sidebar, edit, **Save**. Anyone on the team
+can edit; only the diagram's author or a lead can delete one.
+
+## Deployment (Docker / PaaS)
+
+Ships with a `Dockerfile` for Render or any Docker-based PaaS. See
+`.env.example` for environment variables — `DATA_DIR` for where the SQLite
+database lives (point it at a persistent volume in production), `SOC_USER`/
+`SOC_PASS` for the initial account, `OPENROUTER_API_KEY` to enable
+AI-assisted schedule generation (falls back to a deterministic fair-rotation
+generator without it), and `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` for the
+Google Drive backup described above.
 
 ## License
 
