@@ -190,4 +190,38 @@ if (!columnExists('messages', 'recipient_id')) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_messages_dm ON messages(author_id, recipient_id)');
 }
 
+// Key-value store for one-time data migrations below (distinct from the
+// structural checks above) — tracks which have already run so they're safe
+// to re-run this file on every boot without redoing them.
+db.exec("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT)");
+
+function getMeta(key) {
+  return db.prepare('SELECT value FROM schema_meta WHERE key = ?').get(key)?.value ?? null;
+}
+function setMeta(key, value) {
+  db.prepare('INSERT INTO schema_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+}
+
+// One-time correction: N shifts were originally stored same-day (grid label
+// "July 2" -> real 01:00-09:00 on July 2). The correct convention is that N
+// runs the *following* day (grid label "July 2" -> real 01:00-09:00 on July
+// 3, picking up exactly where that day's E shift ends). Every existing
+// N-type row predates the fix in lib/shift-times.js, so it needs its
+// start_at/end_at pushed forward by exactly one day to match. Computed in
+// JS (not SQLite's datetime()) to keep the exact same ISO string format the
+// rest of the app expects.
+if (!getMeta('n_shift_next_day_fix')) {
+  const nRows = db.prepare("SELECT id, start_at, end_at FROM shifts WHERE type = 'N'").all();
+  const update = db.prepare('UPDATE shifts SET start_at = ?, end_at = ? WHERE id = ?');
+  const tx = db.transaction((rows) => {
+    rows.forEach((r) => {
+      const newStart = new Date(new Date(r.start_at).getTime() + 86400000).toISOString();
+      const newEnd = new Date(new Date(r.end_at).getTime() + 86400000).toISOString();
+      update.run(newStart, newEnd, r.id);
+    });
+  });
+  tx(nRows);
+  setMeta('n_shift_next_day_fix', String(nRows.length));
+}
+
 module.exports = db;

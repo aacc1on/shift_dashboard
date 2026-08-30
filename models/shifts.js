@@ -1,16 +1,20 @@
 'use strict';
 
 const db = require('../db');
-const { computeShiftWindow, utcIsoToLocalDate } = require('../lib/shift-times');
+const { computeShiftWindow, gridDateOf } = require('../lib/shift-times');
 
 // Returns { [dateStr]: { [userId]: 'D'|'E'|'N' } } for the given list of
 // Yerevan calendar dates. Only rows whose window overlaps the requested
-// dates are fetched, then bucketed by the date the shift is assigned to.
+// dates are fetched, then bucketed by the date the shift is assigned to
+// (its grid label, which for N is one day before its real start — see
+// lib/shift-times.js). The range is deliberately generous (D's start is
+// the earliest a labeled date's shift can begin, N's end the latest) and
+// then filtered exactly by dateSet below.
 function getGridForDates(dates) {
   if (!dates.length) return {};
   const sorted = [...dates].sort();
-  const rangeStart = computeShiftWindow(sorted[0], 'N').startAt; // earliest possible start that day
-  const rangeEnd = computeShiftWindow(sorted[sorted.length - 1], 'E').endAt; // latest possible end that day
+  const rangeStart = computeShiftWindow(sorted[0], 'D').startAt;
+  const rangeEnd = computeShiftWindow(sorted[sorted.length - 1], 'N').endAt;
 
   const rows = db.prepare(
     'SELECT id, user_id, start_at, end_at, type, status FROM shifts WHERE start_at >= ? AND start_at <= ? ORDER BY start_at'
@@ -21,7 +25,7 @@ function getGridForDates(dates) {
   dates.forEach((d) => { grid[d] = {}; });
 
   rows.forEach((row) => {
-    const dateStr = utcIsoToLocalDate(row.start_at);
+    const dateStr = gridDateOf(row.start_at, row.type);
     if (!dateSet.has(dateStr)) return;
     grid[dateStr][row.user_id] = row.type;
   });
@@ -32,8 +36,8 @@ function getGridForDates(dates) {
 function getShiftRowsForDates(dates) {
   if (!dates.length) return [];
   const sorted = [...dates].sort();
-  const rangeStart = computeShiftWindow(sorted[0], 'N').startAt;
-  const rangeEnd = computeShiftWindow(sorted[sorted.length - 1], 'E').endAt;
+  const rangeStart = computeShiftWindow(sorted[0], 'D').startAt;
+  const rangeEnd = computeShiftWindow(sorted[sorted.length - 1], 'N').endAt;
   return db.prepare(
     'SELECT * FROM shifts WHERE start_at >= ? AND start_at <= ? ORDER BY start_at'
   ).all(rangeStart, rangeEnd);
@@ -41,10 +45,16 @@ function getShiftRowsForDates(dates) {
 
 // Sets (or clears, if type is null/'X') the shift for one user on one date.
 function upsertShiftForUserOnDate(userId, dateStr, type) {
-  const existing = db.prepare(`
-    SELECT s.id FROM shifts s
-    WHERE s.user_id = ? AND date(s.start_at, '+4 hours') = ?
-  `).get(userId, dateStr);
+  // N rows are stored one real day later than their grid label, so the
+  // lookup has to unwind that offset per-row (can't do it in the WHERE
+  // clause without knowing each row's type first) — fetch a generous
+  // 2-day candidate window and filter exactly by grid date in JS.
+  const rangeStart = computeShiftWindow(dateStr, 'D').startAt;
+  const rangeEnd = new Date(new Date(rangeStart).getTime() + 2 * 86400000).toISOString();
+  const candidates = db.prepare(
+    'SELECT id, start_at, type FROM shifts WHERE user_id = ? AND start_at >= ? AND start_at < ?'
+  ).all(userId, rangeStart, rangeEnd);
+  const existing = candidates.find((row) => gridDateOf(row.start_at, row.type) === dateStr);
 
   if (!type || type === 'X') {
     if (existing) db.prepare('DELETE FROM shifts WHERE id = ?').run(existing.id);
