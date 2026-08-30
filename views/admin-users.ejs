@@ -35,15 +35,36 @@
   </div>
 
   <section class="section">
+    <div class="section-header"><span class="section-icon">▶</span> ADD TEAM MEMBER <span class="section-line"></span></div>
+    <div class="admin-layout" style="grid-template-columns: 1fr;">
+      <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+        <div class="sidebar-field" style="flex:1; min-width:180px; margin-bottom:0;">
+          <label>// NAME</label>
+          <input id="new-member-name" type="text" placeholder="e.g. Areg" />
+        </div>
+        <div class="sidebar-field" style="min-width:140px; margin-bottom:0;">
+          <label>// ROLE</label>
+          <select id="new-member-role">
+            <option value="member">Member</option>
+            <option value="lead">Lead</option>
+          </select>
+        </div>
+        <button class="admin-btn primary" id="new-member-btn" type="button" style="width:auto; margin-bottom:0;">+ Add</button>
+      </div>
+      <div class="admin-feedback" id="new-member-feedback" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section class="section">
     <div class="section-header"><span class="section-icon">▶</span> ACCOUNTS <span class="section-line"></span></div>
     <div class="doc-list" id="user-list"><span style="opacity:.4">Loading…</span></div>
   </section>
 
   <div id="reset-result-backdrop" class="modal-backdrop" hidden>
     <div class="modal-box">
-      <div class="section-header"><span class="section-icon">▶</span> PASSWORD RESET <span class="section-line"></span></div>
+      <div class="section-header"><span class="section-icon">▶</span> <span id="reset-modal-title">PASSWORD RESET</span> <span class="section-line"></span></div>
       <p style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text-dim);margin-bottom:10px;">
-        New temporary password for <strong id="reset-username" style="color:var(--text)"></strong> — share it securely, it won't be shown again:
+        <span id="reset-modal-desc">New temporary password for</span> <strong id="reset-username" style="color:var(--text)"></strong> — share it securely, it won't be shown again:
       </p>
       <div id="reset-password-display" style="font-family:var(--font-mono);font-size:1.1rem;color:var(--green);border:1px solid var(--border2);padding:10px;text-align:center;letter-spacing:0.1em;"></div>
       <button class="admin-btn primary" id="reset-close-btn" type="button" style="margin-top:14px">Done</button>

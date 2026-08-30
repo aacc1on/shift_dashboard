@@ -79,6 +79,19 @@
           <button class="admin-btn ai" id="autogen-month-btn" type="button" <%= canEdit ? '' : 'disabled' %>>🤖 Generate Whole Month</button>
         </div>
 
+        <% if (canEdit) { %>
+        <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+          <div class="admin-sidebar-title">// BROADCAST ANNOUNCEMENT</div>
+          <div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-dim);line-height:1.5;margin-bottom:10px;">
+            Flashes on every operator's dashboard within seconds, typed out live, then fades away on its own.
+          </div>
+          <div class="sidebar-field">
+            <input id="announcement-input" type="text" maxlength="300" placeholder="e.g. All hands — incident briefing in 10 min" />
+          </div>
+          <button class="admin-btn ai" id="announcement-send-btn" type="button" style="margin-top:8px">📢 Broadcast</button>
+        </div>
+        <% } %>
+
         <div style="border-top:1px solid var(--border); margin:20px 0 16px;"></div>
 
         <button class="admin-btn primary" id="save-admin-btn" type="button" <%= canEdit ? '' : 'disabled' %>>▶ SAVE CHANGES</button>

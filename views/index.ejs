@@ -73,6 +73,7 @@
   </div>
 </div>
 <template id="card-tpl"><div class="person-card" data-person=""><div class="card-header"><span class="card-name"></span><span class="card-badge"></span></div><div class="card-shift-label"></div><div class="big-timer"></div><div class="card-progress-wrap"><div class="card-progress-bar"><div class="card-progress-fill"></div><div class="card-progress-glow"></div></div><div class="card-pct"></div></div><div class="card-times"><span class="card-elapsed"></span><span class="card-remaining"></span></div><div class="card-next"></div></div></template>
+<div id="announcement-overlay" class="announcement-overlay" hidden><span id="announcement-text" class="announcement-text"></span><span class="announcement-cursor">▋</span></div>
 <script>window.SOC_DATA={people:<%-JSON.stringify(people)%>,userId:<%= authUserId %>};</script><script src="/js/dashboard.js"></script>
 <script src="/js/profile-widget.js"></script>
 </body></html>

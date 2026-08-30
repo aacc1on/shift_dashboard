@@ -22,6 +22,28 @@ router.get('/', (req, res) => {
   res.json(usersModel.listUsers().map(publicUser));
 });
 
+// Directly add a team member — separate from the schedule roster's
+// implicit "add operator, auto-create an account" flow, for creating an
+// account (e.g. a lead) without it needing to appear in the schedule.
+router.post('/', async (req, res) => {
+  const displayName = String(req.body?.displayName || '').trim();
+  const role = req.body?.role === 'lead' ? 'lead' : 'member';
+  if (!displayName) return res.status(400).json({ error: 'Name is required.' });
+
+  const username = usersModel.suggestUsername(displayName);
+  const tempPassword = generateTempPassword();
+  const user = usersModel.createUser({
+    username,
+    passwordHash: hashPassword(tempPassword),
+    displayName,
+    role,
+    active: 1
+  });
+
+  await fs.appendFile(AUDIT_LOG_PATH, `[${new Date().toISOString()}] ${req.authUser} added team member ${username} (${role})\n`);
+  res.json({ ...publicUser(user), tempPassword });
+});
+
 router.post('/:id/reset-password', async (req, res) => {
   const id = Number(req.params.id);
   const user = usersModel.getUserById(id);

@@ -367,6 +367,55 @@ function bindReportModal() {
   });
 }
 
+// ---- ANNOUNCEMENT OVERLAY (typed broadcast) ----
+
+let announcementBusy = false;
+let lastSeenAnnouncementId = Number(localStorage.getItem('soc_last_announcement_id') || 0);
+
+function typewriteAnnouncement(text) {
+  const overlay = document.getElementById('announcement-overlay');
+  const textEl = document.getElementById('announcement-text');
+  const cursorEl = overlay?.querySelector('.announcement-cursor');
+  if (!overlay || !textEl) return;
+
+  announcementBusy = true;
+  textEl.textContent = '';
+  if (cursorEl) cursorEl.style.visibility = 'visible';
+  overlay.hidden = false;
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  let i = 0;
+  const speed = 32; // ms per character
+  const typeNext = () => {
+    if (i < text.length) {
+      textEl.textContent += text[i];
+      i++;
+      setTimeout(typeNext, speed);
+    } else {
+      if (cursorEl) cursorEl.style.visibility = 'hidden';
+      const holdMs = Math.min(10000, Math.max(3500, text.length * 70));
+      setTimeout(() => {
+        overlay.classList.remove('visible');
+        setTimeout(() => { overlay.hidden = true; announcementBusy = false; }, 700);
+      }, holdMs);
+    }
+  };
+  typeNext();
+}
+
+async function checkAnnouncements() {
+  if (announcementBusy) return;
+  try {
+    const res = await fetch('/api/announcements/latest');
+    const a = await res.json();
+    if (a && a.id > lastSeenAnnouncementId) {
+      lastSeenAnnouncementId = a.id;
+      localStorage.setItem('soc_last_announcement_id', String(a.id));
+      typewriteAnnouncement(a.content);
+    }
+  } catch { /* try again next poll */ }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const init = window.SOC_DATA || {};
   rebuildCards(Array.isArray(init.people) ? init.people : []);
@@ -386,4 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadIncomingReport();
   setInterval(checkReportDue, 30000);
   setInterval(loadIncomingReport, 60000);
+
+  checkAnnouncements();
+  setInterval(checkAnnouncements, 5000);
 });

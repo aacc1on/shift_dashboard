@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const usersModel = require('../models/users');
 const { requireAuth } = require('../middleware/auth');
+const { hashPassword, verifyPassword } = require('../lib/password');
 
 router.use(requireAuth);
 
@@ -47,6 +48,25 @@ router.put('/', (req, res) => {
 
   const updated = usersModel.updateUser(req.authUserId, fields);
   res.json(publicSelf(updated));
+});
+
+// Type-your-own-password self-service — distinct from the admin-side
+// "reset to a random temp password" flow. Requires the current password so
+// a hijacked-but-not-fully-compromised session can't silently lock the
+// real owner out.
+router.put('/password', (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  const user = usersModel.getUserById(req.authUserId);
+
+  if (!currentPassword || !verifyPassword(currentPassword, user.password_hash)) {
+    return res.status(400).json({ error: 'Current password is incorrect.' });
+  }
+  if (!newPassword || String(newPassword).length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+  }
+
+  usersModel.updateUser(req.authUserId, { password_hash: hashPassword(String(newPassword)) });
+  res.json({ ok: true });
 });
 
 module.exports = router;

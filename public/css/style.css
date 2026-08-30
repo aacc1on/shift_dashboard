@@ -843,3 +843,43 @@ body.light {
   font-family: var(--font-mono); font-size: 0.8rem; padding: 10px 14px; outline: none;
 }
 .chat-input-row input:focus { border-color: var(--green); }
+
+/* ---- ANNOUNCEMENT OVERLAY (CoD-style typed broadcast) ---- */
+.announcement-overlay {
+  position: fixed;
+  left: 50%; bottom: 64px;
+  transform: translateX(-50%);
+  z-index: 200;
+  max-width: min(90vw, 720px);
+  padding: 16px 32px;
+  background: rgba(2, 8, 5, 0.6);
+  border-top: 1px solid rgba(0,255,136,0.45);
+  border-bottom: 1px solid rgba(0,255,136,0.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+  pointer-events: none;
+}
+.announcement-overlay.visible { opacity: 1; }
+.announcement-text {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  letter-spacing: 0.05em;
+  color: var(--green);
+  text-shadow: 0 0 10px var(--green), 0 0 26px rgba(0,255,136,0.45);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.announcement-cursor {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  color: var(--green);
+  margin-left: 2px;
+  animation: blink 0.8s steps(1) infinite;
+}
+@media (max-width: 600px) {
+  .announcement-overlay { bottom: 40px; padding: 12px 18px; }
+  .announcement-text, .announcement-cursor { font-size: 0.88rem; }
+}

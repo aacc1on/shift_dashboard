@@ -10,6 +10,6 @@ services:
       - SESSION_SECRET=changeme
       - PORT=3000
     volumes:
-      - ./data.json:/app/data.json
+      - ./data:/app/data
       - ./audit.log:/app/audit.log
     restart: unless-stopped

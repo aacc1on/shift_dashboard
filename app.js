@@ -20,18 +20,19 @@ const apiUsersRoutes = require('./routes/api-users');
 const apiMeRoutes = require('./routes/api-me');
 const apiTeamRoutes = require('./routes/api-team');
 const apiMessagesRoutes = require('./routes/api-messages');
+const apiAnnouncementsRoutes = require('./routes/api-announcements');
 const { handleLogin, handleLogout } = require('./middleware/auth');
-const { migrateFromJsonIfNeeded } = require('./lib/migrate-from-json');
+const { ensureDefaultAdmin } = require('./lib/bootstrap');
 
 const fs = require('fs');
-const generatedAccounts = migrateFromJsonIfNeeded();
-if (generatedAccounts.length) {
-  const lines = generatedAccounts.map((a) => `  ${a.username.padEnd(12)} ${a.tempPassword}  (${a.displayName})`);
-  console.log(`\x1b[36m[SOCGrid]\x1b[0m Migrated ${generatedAccounts.length} operator account(s) from legacy data — temporary passwords (change on first login):`);
-  console.log(lines.join('\n'));
+const createdAdmin = ensureDefaultAdmin();
+if (createdAdmin) {
+  console.log(`\x1b[36m[SOCGrid]\x1b[0m Fresh install — created the first account:`);
+  console.log(`  ${createdAdmin.username.padEnd(12)} ${createdAdmin.password}`);
+  console.log(`\x1b[33m[SOCGrid]\x1b[0m Log in and change this password right away (your profile menu, top of any page).`);
   fs.appendFileSync(
     path.join(__dirname, 'audit.log'),
-    `[${new Date().toISOString()}] Migrated accounts created:\n${lines.join('\n')}\n`
+    `[${new Date().toISOString()}] Fresh install — created initial admin account "${createdAdmin.username}"\n`
   );
 }
 
@@ -69,6 +70,7 @@ app.use('/api/users', apiUsersRoutes);
 app.use('/api/me', apiMeRoutes);
 app.use('/api/team', apiTeamRoutes);
 app.use('/api/messages', apiMessagesRoutes);
+app.use('/api/announcements', apiAnnouncementsRoutes);
 
 app.use((req, res) => {
   res.status(404).send('Not Found');
@@ -78,5 +80,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`\x1b[32m[SOCGrid]\x1b[0m http://localhost:${PORT}`);
   console.log(`\x1b[33m[SOCGrid]\x1b[0m Admin: http://localhost:${PORT}/admin`);
-  console.log(`\x1b[33m[SOCGrid]\x1b[0m Default login — user: admin  pass: soc2026`);
 });

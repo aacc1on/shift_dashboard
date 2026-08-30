@@ -83,6 +83,20 @@
         <button class="admin-btn" id="profile-close-btn" type="button" style="width:auto">Close</button>
       </div>
       <div class="admin-feedback" id="profile-feedback" style="margin-top:10px"></div>
+
+      <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+        <div class="admin-sidebar-title">// CHANGE PASSWORD</div>
+        <div class="sidebar-field">
+          <label>// CURRENT PASSWORD</label>
+          <input id="profile-current-password" type="password" autocomplete="current-password" />
+        </div>
+        <div class="sidebar-field" style="margin-top:10px">
+          <label>// NEW PASSWORD (min. 6 characters)</label>
+          <input id="profile-new-password" type="password" autocomplete="new-password" />
+        </div>
+        <button class="admin-btn" id="profile-password-btn" type="button" style="margin-top:10px">Change Password</button>
+        <div class="admin-feedback" id="profile-password-feedback" style="margin-top:10px"></div>
+      </div>
     `);
 
     document.getElementById('profile-emoji-input').value = me.avatar_emoji;
@@ -90,6 +104,10 @@
     document.getElementById('profile-bio-input').value = me.bio;
     document.getElementById('profile-feedback').textContent = '';
     document.getElementById('profile-feedback').className = 'admin-feedback';
+    document.getElementById('profile-current-password').value = '';
+    document.getElementById('profile-new-password').value = '';
+    document.getElementById('profile-password-feedback').textContent = '';
+    document.getElementById('profile-password-feedback').className = 'admin-feedback';
 
     const presetsBox = document.getElementById('profile-emoji-presets');
     presetsBox.innerHTML = PRESET_EMOJI.map((e) =>
@@ -121,6 +139,29 @@
       } catch (err) {
         feedback.textContent = err.message;
         feedback.className = 'admin-feedback error';
+      }
+    };
+
+    document.getElementById('profile-password-btn').onclick = async () => {
+      const currentPassword = document.getElementById('profile-current-password').value;
+      const newPassword = document.getElementById('profile-new-password').value;
+      const pwFeedback = document.getElementById('profile-password-feedback');
+      pwFeedback.textContent = 'Saving…';
+      pwFeedback.className = 'admin-feedback';
+      try {
+        const res = await fetch('/api/me/password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword, newPassword })
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to change password.');
+        document.getElementById('profile-current-password').value = '';
+        document.getElementById('profile-new-password').value = '';
+        pwFeedback.textContent = 'Password changed.';
+      } catch (err) {
+        pwFeedback.textContent = err.message;
+        pwFeedback.className = 'admin-feedback error';
       }
     };
 

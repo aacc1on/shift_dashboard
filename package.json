@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "SOCGrid — shift-handover dashboard for 24/7 SOC teams",
   "main": "app.js",
+  "license": "MIT",
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js"

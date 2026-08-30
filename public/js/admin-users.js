@@ -52,17 +52,50 @@ async function loadUsers() {
   }
 }
 
+function showCredentialsModal(title, desc, usernameLabel, password) {
+  document.getElementById('reset-modal-title').textContent = title;
+  document.getElementById('reset-modal-desc').textContent = desc;
+  document.getElementById('reset-username').textContent = usernameLabel;
+  document.getElementById('reset-password-display').textContent = password;
+  document.getElementById('reset-result-backdrop').hidden = false;
+}
+
 async function resetPassword(id, username, displayName) {
   if (!confirm(`Reset the password for ${displayName} (${username})? Their current password stops working immediately.`)) return;
   try {
     const res = await fetch(`/api/users/${id}/reset-password`, { method: 'POST' });
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || 'Failed to reset password.');
-    document.getElementById('reset-username').textContent = `${displayName} (${result.username})`;
-    document.getElementById('reset-password-display').textContent = result.tempPassword;
-    document.getElementById('reset-result-backdrop').hidden = false;
+    showCredentialsModal('PASSWORD RESET', 'New temporary password for', `${displayName} (${result.username})`, result.tempPassword);
   } catch (err) {
     alert(err.message);
+  }
+}
+
+async function addTeamMember() {
+  const nameInput = document.getElementById('new-member-name');
+  const roleSelect = document.getElementById('new-member-role');
+  const feedback = document.getElementById('new-member-feedback');
+  const displayName = nameInput.value.trim();
+  if (!displayName) { feedback.textContent = 'Enter a name first.'; feedback.className = 'admin-feedback error'; return; }
+
+  feedback.textContent = 'Adding…';
+  feedback.className = 'admin-feedback';
+  try {
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName, role: roleSelect.value })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to add team member.');
+    nameInput.value = '';
+    feedback.textContent = `${displayName} added.`;
+    loadUsers();
+    showCredentialsModal('TEAM MEMBER ADDED', 'Temporary password for', `${result.display_name} (${result.username})`, result.tempPassword);
+  } catch (err) {
+    feedback.textContent = err.message;
+    feedback.className = 'admin-feedback error';
   }
 }
 
@@ -95,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateClock();
   setInterval(updateClock, 1000);
   loadUsers();
+  document.getElementById('new-member-btn').addEventListener('click', addTeamMember);
   document.getElementById('reset-close-btn').addEventListener('click', () => {
     document.getElementById('reset-result-backdrop').hidden = true;
   });

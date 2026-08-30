@@ -174,6 +174,15 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
+
+  -- Broadcast announcements: lead-only, shown to everyone on the dashboard
+  -- as a one-shot typewriter effect, not a persistent banner.
+  CREATE TABLE IF NOT EXISTS announcements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 if (!columnExists('messages', 'recipient_id')) {

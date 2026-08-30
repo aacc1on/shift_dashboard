@@ -261,6 +261,28 @@ function attachControls() {
 }
 
 function bindAdminActions() {
+  const announceBtn = document.getElementById('announcement-send-btn');
+  if (announceBtn) {
+    announceBtn.addEventListener('click', async () => {
+      const input = document.getElementById('announcement-input');
+      const content = input.value.trim();
+      if (!content) { setFeedback('Type something to broadcast first.', 'error'); return; }
+      try {
+        const res = await fetch('/api/announcements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to broadcast.');
+        input.value = '';
+        setFeedback('Broadcast sent — it\'ll appear on everyone\'s dashboard shortly.');
+      } catch (err) {
+        setFeedback(err.message, 'error');
+      }
+    });
+  }
+
   document.getElementById('week-prev').addEventListener('click', () => {
     weekOffset -= 1;
     refreshTable();
