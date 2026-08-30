@@ -609,10 +609,15 @@ body {
 }
 @media (max-width: 600px) {
   .hdr { padding: 12px 16px; flex-direction: column; gap: 10px; }
+  .hdr-left, .hdr-right { min-width: 0; flex-wrap: wrap; justify-content: center; }
+  .hdr-badge { font-size: 0.62rem; padding: 5px 9px; margin: 0 2px; }
   .section { padding: 20px 16px; }
+  .tab-bar { padding-left: 16px; padding-right: 16px; }
   .logo-line { font-size: 1.5rem; }
   .stats-row { grid-template-columns: 1fr 1fr; }
   .big-timer { font-size: 1.3rem; }
+  .status-bar { flex-wrap: wrap; padding: 8px 16px; row-gap: 4px; }
+  .warnings-banner, .incoming-report { margin-left: 16px; margin-right: 16px; }
 }
 body.light {
   --bg: #f0f4f8;
@@ -672,7 +677,16 @@ body.light {
   .person-card { padding: 14px; }
   .big-timer { font-size: 1.1rem; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
-  .section, .hdr, .status-bar { padding-left: 14px; padding-right: 14px; }
+  .section, .hdr, .status-bar, .tab-bar { padding-left: 14px; padding-right: 14px; }
+  .warnings-banner, .incoming-report { margin-left: 14px; margin-right: 14px; }
+  .modal-backdrop { padding: 10px; }
+  .modal-box { padding: 16px; }
+  .chat-log { height: 45vh; }
+  .chat-layout, .doc-browse-layout, .admin-layout, .swap-layout { gap: 12px; }
+  .remove-btn { width: 30px; height: 30px; font-size: 0.95rem; }
+  .doc-item-actions .admin-btn, .swap-item-actions .admin-btn { padding: 8px 12px; }
+  .admin-nav-btn { padding: 8px 10px; font-size: 0.64rem; }
+  .tab-btn { padding: 9px 12px; font-size: 0.62rem; }
 }
 
 /* ---- HANDOVER REPORT ---- */

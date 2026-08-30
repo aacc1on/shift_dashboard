@@ -31,7 +31,8 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
       position: relative;
     }
     .scanlines {
@@ -253,6 +254,22 @@
     }
     .blink { animation: blink 1s infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    @media (max-width: 480px) {
+      body { padding: 24px 0; }
+      .corner { width: 44px; height: 44px; }
+      .corner::before { height: 24px; }
+      .corner::after { width: 24px; }
+      .corner-tl, .corner-tr { top: 10px; }
+      .corner-bl, .corner-br { bottom: 10px; }
+      .corner-tl, .corner-bl { left: 10px; }
+      .corner-tr, .corner-br { right: 10px; }
+      .login-wrap { padding: 0 16px; }
+      .login-brand { margin-bottom: 28px; }
+      .brand-logo { font-size: 2.1rem; letter-spacing: 0.12em; gap: 8px; }
+      .brand-sub { font-size: 0.52rem; letter-spacing: 0.2em; }
+      .login-card { padding: 26px 20px; }
+    }
   </style>
 </head>
 <body>
