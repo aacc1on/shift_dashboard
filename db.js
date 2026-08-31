@@ -280,4 +280,22 @@ async function init() {
   }
 }
 
-module.exports = { db, ready: init(), get, all, run, getMeta, setMeta };
+// A brand-new remote Turso database can return a transient error on the very
+// first request or two (it isn't necessarily "warm" yet) — retrying the
+// whole init is safe because every step in it is idempotent (IF NOT EXISTS /
+// columnExists / getMeta guards), so a partially-completed attempt just
+// picks up where it left off rather than redoing or duplicating anything.
+async function initWithRetry(maxAttempts = 5) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await init();
+      return;
+    } catch (err) {
+      if (attempt === maxAttempts) throw err;
+      console.error(`[SOCGrid] DB init attempt ${attempt}/${maxAttempts} failed (${err.message}) — retrying...`);
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+    }
+  }
+}
+
+module.exports = { db, ready: initWithRetry(), get, all, run, getMeta, setMeta };

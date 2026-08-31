@@ -276,6 +276,13 @@ does locally.
    credentials — check the Render logs the first time to grab them, since
    there's no local console here.
 
+   A brand-new Turso database can be slow to respond to its very first
+   request or two, which can make that very first deploy crash on startup —
+   `db.js` retries its own startup (schema creation/migrations) up to 5
+   times with backoff specifically for this, so a plain redeploy (or
+   Render's own auto-restart) recovers on its own; you shouldn't need to do
+   anything.
+
 ### 3. Redeploying
 
 Push to the branch Render is watching (or click **Manual Deploy**) — same as
