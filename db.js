@@ -12,24 +12,45 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 // TURSO_AUTH_TOKEN) in production to point at a Turso cloud database instead
 // — same code path either way, libSQL speaks the same wire protocol to both.
 // See README.md "Turso (cloud SQLite) setup" for the production side.
-const DB_URL = process.env.TURSO_DATABASE_URL || `file:${path.join(DATA_DIR, 'baton.db')}`;
+// .trim() guards against the single most common way to break this: a
+// trailing newline/space left over from pasting the value into a host's
+// environment-variable UI — invisible in the UI, but it turns the token into
+// something the server rejects outright (a bare 400 with no detail, since
+// that gets caught by an auth/gateway layer before reaching real query logic).
+const rawTursoUrl = process.env.TURSO_DATABASE_URL?.trim();
+const rawTursoToken = process.env.TURSO_AUTH_TOKEN?.trim();
+const DB_URL = rawTursoUrl || `file:${path.join(DATA_DIR, 'baton.db')}`;
+
+if (rawTursoToken && (rawTursoToken.match(/\./g) || []).length !== 2) {
+  console.error(
+    `[SOCGrid] TURSO_AUTH_TOKEN doesn't look like a valid token (expected exactly 2 dots, a JWT header.payload.signature — found ${(rawTursoToken.match(/\./g) || []).length}). ` +
+    'It was likely copied wrong (e.g. two tokens pasted together, or a stray line break). Regenerate it (`turso db tokens create <db>`) and paste only that single value.'
+  );
+}
 
 const db = createClient({
   url: DB_URL,
-  authToken: process.env.TURSO_AUTH_TOKEN || undefined
+  authToken: rawTursoToken || undefined
 });
 
-// One statement per db.execute() call, run in sequence — deliberately not
-// db.executeMultiple() with a semicolon-separated block. That worked fine
-// locally (the embedded engine does real SQL tokenization), but against a
-// remote Turso database it 400'd consistently: its statement-splitter isn't
-// comment-aware, and this schema's explanatory `-- ...` comments include a
-// semicolon inside a comment (a legal SQL comment, but a false statement
-// boundary to a naive splitter). Running each statement on its own sidesteps
-// that entirely, on either backend.
+// One statement per db.execute() call, run in sequence, rather than
+// db.executeMultiple() with a semicolon-separated block — sidesteps any
+// ambiguity in how a remote backend splits a multi-statement string.
 async function execAll(statements) {
   for (const sql of statements) {
-    await db.execute(sql);
+    try {
+      await db.execute(sql);
+    } catch (err) {
+      // The Hrana HTTP error path swallows the response body for anything
+      // that isn't JSON/text (see @libsql/hrana-client's errorFromResponse),
+      // so a bare "Server returned HTTP status 400" with no further detail
+      // usually means the request was rejected before reaching real query
+      // logic at all (most often: a bad TURSO_AUTH_TOKEN — see the check
+      // above) rather than this specific statement being invalid SQL. Log
+      // which statement it was on regardless, in case it's genuinely that.
+      console.error(`[SOCGrid] DB init failed on: ${sql.trim().slice(0, 100).replace(/\s+/g, ' ')}...`);
+      throw err;
+    }
   }
 }
 
