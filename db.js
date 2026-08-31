@@ -19,6 +19,20 @@ const db = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN || undefined
 });
 
+// One statement per db.execute() call, run in sequence — deliberately not
+// db.executeMultiple() with a semicolon-separated block. That worked fine
+// locally (the embedded engine does real SQL tokenization), but against a
+// remote Turso database it 400'd consistently: its statement-splitter isn't
+// comment-aware, and this schema's explanatory `-- ...` comments include a
+// semicolon inside a comment (a legal SQL comment, but a false statement
+// boundary to a naive splitter). Running each statement on its own sidesteps
+// that entirely, on either backend.
+async function execAll(statements) {
+  for (const sql of statements) {
+    await db.execute(sql);
+  }
+}
+
 async function columnExists(table, column) {
   const info = await db.execute(`PRAGMA table_info(${table})`);
   return info.rows.some((c) => c.name === column);
@@ -60,8 +74,8 @@ async function setMeta(key, value) {
 }
 
 async function init() {
-  await db.executeMultiple(`
-    CREATE TABLE IF NOT EXISTS users (
+  await execAll([
+    `CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
@@ -71,9 +85,9 @@ async function init() {
       avatar_emoji TEXT NOT NULL DEFAULT '🧑',
       bio TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+    )`,
 
-    CREATE TABLE IF NOT EXISTS shifts (
+    `CREATE TABLE IF NOT EXISTS shifts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       start_at TEXT NOT NULL,
@@ -82,12 +96,11 @@ async function init() {
       status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_shifts_user_start ON shifts(user_id, start_at)',
+    'CREATE INDEX IF NOT EXISTS idx_shifts_start ON shifts(start_at)',
 
-    CREATE INDEX IF NOT EXISTS idx_shifts_user_start ON shifts(user_id, start_at);
-    CREATE INDEX IF NOT EXISTS idx_shifts_start ON shifts(start_at);
-
-    CREATE TABLE IF NOT EXISTS swaps (
+    `CREATE TABLE IF NOT EXISTS swaps (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       shift_id INTEGER NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
       requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -95,14 +108,13 @@ async function init() {
       status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       resolved_at TEXT
-    );
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_swaps_requester ON swaps(requester_id, status)',
+    'CREATE INDEX IF NOT EXISTS idx_swaps_target ON swaps(target_id, status)',
 
-    CREATE INDEX IF NOT EXISTS idx_swaps_requester ON swaps(requester_id, status);
-    CREATE INDEX IF NOT EXISTS idx_swaps_target ON swaps(target_id, status);
-
-    -- Mandatory handover report: one per shift. Submitting it is the only way
-    -- a shift's status can become 'closed' (the gate lives in models/reports.js).
-    CREATE TABLE IF NOT EXISTS reports (
+    // Mandatory handover report: one per shift. Submitting it is the only way
+    // a shift's status can become 'closed' (the gate lives in models/reports.js).
+    `CREATE TABLE IF NOT EXISTS reports (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       shift_id INTEGER NOT NULL UNIQUE REFERENCES shifts(id) ON DELETE CASCADE,
       author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -110,18 +122,17 @@ async function init() {
       unfinished TEXT NOT NULL DEFAULT '',
       open_items TEXT NOT NULL DEFAULT '[]',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_reports_author ON reports(author_id)',
 
-    CREATE INDEX IF NOT EXISTS idx_reports_author ON reports(author_id);
-
-    -- visibility: 'shift' = private handover note, only the author, the operator
-    -- holding the chronologically next shift, and leads can see it; 'team' =
-    -- whole SOC team; 'published' = same as team but locked from further edits;
-    -- 'restricted' = author + leads + an explicit per-document allow-list
-    -- (see document_access below, created after the migration further down —
-    -- it must come after, since renaming this table mid-migration would
-    -- otherwise drag any earlier-created foreign key along with it).
-    CREATE TABLE IF NOT EXISTS documents (
+    // visibility: 'shift' = private handover note, only the author, the operator
+    // holding the chronologically next shift, and leads can see it; 'team' =
+    // whole SOC team; 'published' = same as team but locked from further edits;
+    // 'restricted' = author + leads + an explicit per-document allow-list
+    // (see document_access below, created after the migration further down —
+    // it must come after, since renaming this table mid-migration would
+    // otherwise drag any earlier-created foreign key along with it).
+    `CREATE TABLE IF NOT EXISTS documents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       type TEXT NOT NULL,
       title TEXT NOT NULL,
@@ -133,11 +144,10 @@ async function init() {
       author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(type);
-    CREATE INDEX IF NOT EXISTS idx_documents_visibility ON documents(visibility);
-  `);
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(type)',
+    'CREATE INDEX IF NOT EXISTS idx_documents_visibility ON documents(visibility)'
+  ]);
 
   // --- Migrations for tables that already existed before a given feature ---
   // (CREATE TABLE IF NOT EXISTS above is a no-op once the table already exists,
@@ -162,10 +172,9 @@ async function init() {
   });
   const docsSql = documentsTableSql.rows[0]?.sql;
   if (docsSql && !docsSql.includes('restricted')) {
-    await db.executeMultiple(`
-      ALTER TABLE documents RENAME TO documents_old;
-
-      CREATE TABLE documents (
+    await execAll([
+      'ALTER TABLE documents RENAME TO documents_old',
+      `CREATE TABLE documents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT NOT NULL,
         title TEXT NOT NULL,
@@ -177,14 +186,12 @@ async function init() {
         author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-
-      INSERT INTO documents SELECT * FROM documents_old;
-      DROP TABLE documents_old;
-
-      CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(type);
-      CREATE INDEX IF NOT EXISTS idx_documents_visibility ON documents(visibility);
-    `);
+      )`,
+      'INSERT INTO documents SELECT * FROM documents_old',
+      'DROP TABLE documents_old',
+      'CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(type)',
+      'CREATE INDEX IF NOT EXISTS idx_documents_visibility ON documents(visibility)'
+    ]);
   }
 
   // One-time repair: an earlier version of this migration created
@@ -201,40 +208,39 @@ async function init() {
     }
   }
 
-  await db.executeMultiple(`
-    -- Explicit per-user allow-list for visibility='restricted' documents.
-    -- Created after the documents-table migration above — see the comment there.
-    CREATE TABLE IF NOT EXISTS document_access (
+  await execAll([
+    // Explicit per-user allow-list for visibility='restricted' documents.
+    // Created after the documents-table migration above — see the comment there.
+    `CREATE TABLE IF NOT EXISTS document_access (
       document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       PRIMARY KEY (document_id, user_id)
-    );
+    )`,
 
-    -- recipient_id NULL = team channel (visible to everyone); set = a private
-    -- direct message, visible only to author_id and recipient_id.
-    CREATE TABLE IF NOT EXISTS messages (
+    // recipient_id NULL = team channel (visible to everyone); set = a private
+    // direct message, visible only to author_id and recipient_id.
+    `CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at)',
 
-    CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
-
-    -- Broadcast announcements: lead-only, shown to everyone on the dashboard
-    -- as a one-shot typewriter effect, not a persistent banner.
-    CREATE TABLE IF NOT EXISTS announcements (
+    // Broadcast announcements: lead-only, shown to everyone on the dashboard
+    // as a one-shot typewriter effect, not a persistent banner.
+    `CREATE TABLE IF NOT EXISTS announcements (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+    )`,
 
-    -- Network topology diagrams (Drawflow canvases). "data" is Drawflow's own
-    -- exported JSON blob, stored opaque -- the app never inspects its shape.
-    -- Team-shared and team-editable, same trust level as chat.
-    CREATE TABLE IF NOT EXISTS network_diagrams (
+    // Network topology diagrams (Drawflow canvases). "data" is Drawflow's own
+    // exported JSON blob, stored opaque — the app never inspects its shape.
+    // Team-shared and team-editable, same trust level as chat.
+    `CREATE TABLE IF NOT EXISTS network_diagrams (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       data TEXT NOT NULL DEFAULT '{}',
@@ -242,10 +248,10 @@ async function init() {
       updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+    )`,
 
-    CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT);
-  `);
+    'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT)'
+  ]);
 
   if (!(await columnExists('messages', 'recipient_id'))) {
     await db.execute('ALTER TABLE messages ADD COLUMN recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE');
