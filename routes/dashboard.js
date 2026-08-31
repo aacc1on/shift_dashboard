@@ -37,14 +37,14 @@ function datesBetween(startStr, endStr) {
   return dates;
 }
 
-router.get('/', requireAuth, (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   const parsed = Number.parseInt(req.query.week, 10);
   const week = Number.isFinite(parsed) ? parsed : 0;
   const { mondayStr, sundayStr } = getWeekRange(week);
   const weekDates = datesBetween(mondayStr, sundayStr);
 
-  const users = usersModel.listUsers({ activeOnly: true, role: 'member' });
-  const gridByUserId = shiftsModel.getGridForDates(weekDates);
+  const users = await usersModel.listUsers({ activeOnly: true, role: 'member' });
+  const gridByUserId = await shiftsModel.getGridForDates(weekDates);
 
   // Re-key by display name to match the existing view's expectations.
   const schedule = {};

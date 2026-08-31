@@ -18,8 +18,9 @@ function publicUser(u) {
   return { id: u.id, username: u.username, display_name: u.display_name, role: u.role, active: u.active, created_at: u.created_at };
 }
 
-router.get('/', (req, res) => {
-  res.json(usersModel.listUsers().map(publicUser));
+router.get('/', async (req, res) => {
+  const users = await usersModel.listUsers();
+  res.json(users.map(publicUser));
 });
 
 // Directly add a team member — separate from the schedule roster's
@@ -30,9 +31,9 @@ router.post('/', async (req, res) => {
   const role = req.body?.role === 'lead' ? 'lead' : 'member';
   if (!displayName) return res.status(400).json({ error: 'Name is required.' });
 
-  const username = usersModel.suggestUsername(displayName);
+  const username = await usersModel.suggestUsername(displayName);
   const tempPassword = generateTempPassword();
-  const user = usersModel.createUser({
+  const user = await usersModel.createUser({
     username,
     passwordHash: hashPassword(tempPassword),
     displayName,
@@ -46,11 +47,11 @@ router.post('/', async (req, res) => {
 
 router.post('/:id/reset-password', async (req, res) => {
   const id = Number(req.params.id);
-  const user = usersModel.getUserById(id);
+  const user = await usersModel.getUserById(id);
   if (!user) return res.status(404).json({ error: 'User not found.' });
 
   const tempPassword = generateTempPassword();
-  usersModel.updateUser(id, { password_hash: hashPassword(tempPassword) });
+  await usersModel.updateUser(id, { password_hash: hashPassword(tempPassword) });
 
   await fs.appendFile(
     AUDIT_LOG_PATH,
@@ -62,28 +63,28 @@ router.post('/:id/reset-password', async (req, res) => {
 
 router.post('/:id/deactivate', async (req, res) => {
   const id = Number(req.params.id);
-  const user = usersModel.getUserById(id);
+  const user = await usersModel.getUserById(id);
   if (!user) return res.status(404).json({ error: 'User not found.' });
   if (!user.active) return res.json(publicUser(user));
 
   if (user.role === 'lead') {
-    const activeLeads = usersModel.listUsers({ activeOnly: true, role: 'lead' });
+    const activeLeads = await usersModel.listUsers({ activeOnly: true, role: 'lead' });
     if (activeLeads.length <= 1) {
       return res.status(400).json({ error: 'Cannot deactivate the only remaining lead account.' });
     }
   }
 
-  const updated = usersModel.updateUser(id, { active: 0 });
+  const updated = await usersModel.updateUser(id, { active: 0 });
   await fs.appendFile(AUDIT_LOG_PATH, `[${new Date().toISOString()}] ${req.authUser} deactivated ${user.username}\n`);
   res.json(publicUser(updated));
 });
 
 router.post('/:id/activate', async (req, res) => {
   const id = Number(req.params.id);
-  const user = usersModel.getUserById(id);
+  const user = await usersModel.getUserById(id);
   if (!user) return res.status(404).json({ error: 'User not found.' });
 
-  const updated = usersModel.updateUser(id, { active: 1 });
+  const updated = await usersModel.updateUser(id, { active: 1 });
   await fs.appendFile(AUDIT_LOG_PATH, `[${new Date().toISOString()}] ${req.authUser} reactivated ${user.username}\n`);
   res.json(publicUser(updated));
 });
@@ -93,17 +94,17 @@ router.post('/:id/activate', async (req, res) => {
 // history should be deactivated instead, to keep the audit trail intact.
 router.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
-  const user = usersModel.getUserById(id);
+  const user = await usersModel.getUserById(id);
   if (!user) return res.status(404).json({ error: 'User not found.' });
 
   if (user.role === 'lead') {
-    const activeLeads = usersModel.listUsers({ activeOnly: true, role: 'lead' });
+    const activeLeads = await usersModel.listUsers({ activeOnly: true, role: 'lead' });
     if (user.active && activeLeads.length <= 1) {
       return res.status(400).json({ error: 'Cannot delete the only remaining lead account.' });
     }
   }
 
-  const counts = usersModel.getOwnedDataCounts(id);
+  const counts = await usersModel.getOwnedDataCounts(id);
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   if (total > 0) {
     return res.status(400).json({
@@ -111,7 +112,7 @@ router.delete('/:id', async (req, res) => {
     });
   }
 
-  usersModel.deleteUser(id);
+  await usersModel.deleteUser(id);
   await fs.appendFile(AUDIT_LOG_PATH, `[${new Date().toISOString()}] ${req.authUser} permanently deleted ${user.username} (no history attached)\n`);
   res.json({ ok: true });
 });

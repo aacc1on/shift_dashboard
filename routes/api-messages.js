@@ -10,46 +10,46 @@ router.use(requireAuth);
 
 // ---- Team channel ----
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const since = req.query.since ? Number(req.query.since) : null;
-  res.json(since ? messagesModel.listTeamSince(since) : messagesModel.listTeamMessages());
+  res.json(since ? await messagesModel.listTeamSince(since) : await messagesModel.listTeamMessages());
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const content = String(req.body?.content || '').trim();
   if (!content) return res.status(400).json({ error: 'Message cannot be empty.' });
   if (content.length > 2000) return res.status(400).json({ error: 'Message is too long (2000 char max).' });
-  res.json(messagesModel.createTeamMessage({ authorId: req.authUserId, content }));
+  res.json(await messagesModel.createTeamMessage({ authorId: req.authUserId, content }));
 });
 
 // ---- Direct messages ----
 
-router.get('/conversations', (req, res) => {
-  res.json(messagesModel.listConversationsFor(req.authUserId));
+router.get('/conversations', async (req, res) => {
+  res.json(await messagesModel.listConversationsFor(req.authUserId));
 });
 
-function validRecipient(req, res, next) {
+async function validRecipient(req, res, next) {
   const recipientId = Number(req.params.userId);
   if (recipientId === req.authUserId) return res.status(400).json({ error: "You can't message yourself." });
-  const recipient = usersModel.getUserById(recipientId);
+  const recipient = await usersModel.getUserById(recipientId);
   if (!recipient || !recipient.active) return res.status(404).json({ error: 'User not found.' });
   req.recipient = recipient;
   next();
 }
 
-router.get('/dm/:userId', validRecipient, (req, res) => {
+router.get('/dm/:userId', validRecipient, async (req, res) => {
   const since = req.query.since ? Number(req.query.since) : null;
   const messages = since
-    ? messagesModel.listConversationSince(req.authUserId, req.recipient.id, since)
-    : messagesModel.listConversation(req.authUserId, req.recipient.id);
+    ? await messagesModel.listConversationSince(req.authUserId, req.recipient.id, since)
+    : await messagesModel.listConversation(req.authUserId, req.recipient.id);
   res.json({ recipient: { id: req.recipient.id, display_name: req.recipient.display_name, avatar_emoji: req.recipient.avatar_emoji }, messages });
 });
 
-router.post('/dm/:userId', validRecipient, (req, res) => {
+router.post('/dm/:userId', validRecipient, async (req, res) => {
   const content = String(req.body?.content || '').trim();
   if (!content) return res.status(400).json({ error: 'Message cannot be empty.' });
   if (content.length > 2000) return res.status(400).json({ error: 'Message is too long (2000 char max).' });
-  res.json(messagesModel.createDirectMessage({ authorId: req.authUserId, recipientId: req.recipient.id, content }));
+  res.json(await messagesModel.createDirectMessage({ authorId: req.authUserId, recipientId: req.recipient.id, content }));
 });
 
 module.exports = router;

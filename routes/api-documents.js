@@ -20,9 +20,9 @@ function withRendered(doc) {
   return { ...doc, content_html: renderMarkdown(doc.content) };
 }
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { type, q, from, to, templates } = req.query;
-  const docs = documentsModel.listDocuments({
+  const docs = await documentsModel.listDocuments({
     viewer: viewerOf(req),
     type: type || null,
     q: q || null,
@@ -33,15 +33,15 @@ router.get('/', (req, res) => {
   res.json(docs.map(withRendered));
 });
 
-router.get('/:id', (req, res) => {
-  const doc = documentsModel.getDocumentById(Number(req.params.id), viewerOf(req));
+router.get('/:id', async (req, res) => {
+  const doc = await documentsModel.getDocumentById(Number(req.params.id), viewerOf(req));
   if (!doc) return res.status(404).json({ error: 'Document not found.' });
   res.json(withRendered(doc));
 });
 
 const VISIBILITIES = ['shift', 'team', 'published', 'restricted'];
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { type, title, tags, content, visibility, shiftId, isTemplate, restrictedTo } = req.body || {};
   if (!type || !String(type).trim()) return res.status(400).json({ error: 'type is required.' });
   if (!title || !String(title).trim()) return res.status(400).json({ error: 'title is required.' });
@@ -51,7 +51,7 @@ router.post('/', (req, res) => {
     return res.status(403).json({ error: 'Only a lead can publish a document directly — save as team-visible, then publish.' });
   }
 
-  const doc = documentsModel.createDocument({
+  const doc = await documentsModel.createDocument({
     type: String(type).trim(),
     title: String(title).trim(),
     tags: String(tags || '').trim(),
@@ -62,12 +62,12 @@ router.post('/', (req, res) => {
     isTemplate: !!isTemplate,
     restrictedTo: Array.isArray(restrictedTo) ? restrictedTo : []
   });
-  res.json(withRendered(documentsModel.getDocumentById(doc.id, viewerOf(req))));
+  res.json(withRendered(await documentsModel.getDocumentById(doc.id, viewerOf(req))));
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const id = Number(req.params.id);
-  const doc = documentsModel.getDocumentById(id, viewerOf(req));
+  const doc = await documentsModel.getDocumentById(id, viewerOf(req));
   if (!doc) return res.status(404).json({ error: 'Document not found.' });
   if (doc.author_id !== req.authUserId && req.authRole !== 'lead') {
     return res.status(403).json({ error: 'Only the author or a lead can edit this document.' });
@@ -79,7 +79,7 @@ router.put('/:id', (req, res) => {
   }
 
   try {
-    documentsModel.updateDocument(id, {
+    await documentsModel.updateDocument(id, {
       ...(type !== undefined ? { type: String(type).trim() } : {}),
       ...(title !== undefined ? { title: String(title).trim() } : {}),
       ...(tags !== undefined ? { tags: String(tags).trim() } : {}),
@@ -87,7 +87,7 @@ router.put('/:id', (req, res) => {
       ...(visibility !== undefined && VISIBILITIES.includes(visibility) ? { visibility } : {}),
       ...(Array.isArray(restrictedTo) ? { restrictedTo } : {})
     });
-    res.json(withRendered(documentsModel.getDocumentById(id, viewerOf(req))));
+    res.json(withRendered(await documentsModel.getDocumentById(id, viewerOf(req))));
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -95,34 +95,34 @@ router.put('/:id', (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
-  const doc = documentsModel.getDocumentById(id, viewerOf(req));
+  const doc = await documentsModel.getDocumentById(id, viewerOf(req));
   if (!doc) return res.status(404).json({ error: 'Document not found.' });
   if (doc.author_id !== req.authUserId && req.authRole !== 'lead') {
     return res.status(403).json({ error: 'Only the author or a lead can delete this document.' });
   }
 
-  documentsModel.deleteDocument(id);
+  await documentsModel.deleteDocument(id);
   await fs.appendFile(AUDIT_LOG_PATH, `[${new Date().toISOString()}] ${req.authUser} deleted document #${id} ("${doc.title}")\n`);
   res.json({ ok: true });
 });
 
-router.post('/:id/publish', (req, res) => {
+router.post('/:id/publish', async (req, res) => {
   if (req.authRole !== 'lead') return res.status(403).json({ error: 'Only a lead can publish a document.' });
-  const doc = documentsModel.getDocumentById(Number(req.params.id), viewerOf(req));
+  const doc = await documentsModel.getDocumentById(Number(req.params.id), viewerOf(req));
   if (!doc) return res.status(404).json({ error: 'Document not found.' });
-  res.json(withRendered(documentsModel.setVisibility(doc.id, 'published')));
+  res.json(withRendered(await documentsModel.setVisibility(doc.id, 'published')));
 });
 
-router.post('/:id/unpublish', (req, res) => {
+router.post('/:id/unpublish', async (req, res) => {
   if (req.authRole !== 'lead') return res.status(403).json({ error: 'Only a lead can unpublish a document.' });
-  const doc = documentsModel.getDocumentById(Number(req.params.id), viewerOf(req));
+  const doc = await documentsModel.getDocumentById(Number(req.params.id), viewerOf(req));
   if (!doc) return res.status(404).json({ error: 'Document not found.' });
-  res.json(withRendered(documentsModel.setVisibility(doc.id, 'team')));
+  res.json(withRendered(await documentsModel.setVisibility(doc.id, 'team')));
 });
 
-router.post('/:id/use-template', (req, res) => {
+router.post('/:id/use-template', async (req, res) => {
   try {
-    const doc = documentsModel.createFromTemplate(Number(req.params.id), req.authUserId);
+    const doc = await documentsModel.createFromTemplate(Number(req.params.id), req.authUserId);
     res.json(withRendered(doc));
   } catch (error) {
     res.status(400).json({ error: error.message });

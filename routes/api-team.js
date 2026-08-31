@@ -21,12 +21,13 @@ function publicProfile(u) {
 // username/password/created_at). Anyone logged in can browse it; this is
 // distinct from /api/users, which is lead-only and exposes account-management
 // fields for password resets and deactivation.
-router.get('/', (req, res) => {
-  res.json(usersModel.listUsers({ activeOnly: true }).map(publicProfile));
+router.get('/', async (req, res) => {
+  const users = await usersModel.listUsers({ activeOnly: true });
+  res.json(users.map(publicProfile));
 });
 
-router.get('/:id', (req, res) => {
-  const user = usersModel.getUserById(Number(req.params.id));
+router.get('/:id', async (req, res) => {
+  const user = await usersModel.getUserById(Number(req.params.id));
   if (!user || !user.active) return res.status(404).json({ error: 'User not found.' });
   res.json(publicProfile(user));
 });

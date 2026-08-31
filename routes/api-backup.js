@@ -8,10 +8,10 @@ const { runDriveBackup, isDriveConfigured, lastDriveBackup } = require('../lib/d
 
 router.use(requireLead);
 
-router.get('/status', (req, res) => {
+router.get('/status', async (req, res) => {
   res.json({
     driveConfigured: isDriveConfigured(),
-    lastDriveBackup: lastDriveBackup()
+    lastDriveBackup: await lastDriveBackup()
   });
 });
 

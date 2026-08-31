@@ -6,10 +6,10 @@ const shiftsModel = require('../models/shifts');
 const { requireAuth } = require('../middleware/auth');
 const { defaultAdminDateRange } = require('../lib/shift-times');
 
-router.get('/csv', requireAuth, (req, res) => {
-  const users = usersModel.listUsers({ activeOnly: true, role: 'member' });
+router.get('/csv', requireAuth, async (req, res) => {
+  const users = await usersModel.listUsers({ activeOnly: true, role: 'member' });
   const dates = defaultAdminDateRange();
-  const gridByUserId = shiftsModel.getGridForDates(dates);
+  const gridByUserId = await shiftsModel.getGridForDates(dates);
 
   const lines = [];
   lines.push(['Operator', ...dates].join(','));

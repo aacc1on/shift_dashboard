@@ -18,9 +18,11 @@ function currentExpectedType(iso) {
   return 'N';
 }
 
-function buildPersonStatus(user, now) {
-  const current = shiftsModel.getCurrentShiftForUser(user.id, now);
-  const next = shiftsModel.getNextShiftForUser(user.id, now);
+async function buildPersonStatus(user, now) {
+  const [current, next] = await Promise.all([
+    shiftsModel.getCurrentShiftForUser(user.id, now),
+    shiftsModel.getNextShiftForUser(user.id, now)
+  ]);
   const nowMs = new Date(now).getTime();
 
   let currentOut = null;
@@ -55,9 +57,9 @@ function buildPersonStatus(user, now) {
   };
 }
 
-router.get('/status', requireAuth, (req, res) => {
+router.get('/status', requireAuth, async (req, res) => {
   const now = nowIso();
-  const users = usersModel.listUsers({ activeOnly: true, role: 'member' });
+  const users = await usersModel.listUsers({ activeOnly: true, role: 'member' });
 
   const responseData = {
     system: 'SOCGrid',
@@ -68,8 +70,9 @@ router.get('/status', requireAuth, (req, res) => {
 
   const coverage = { D: 0, E: 0, N: 0 };
 
-  users.forEach((user) => {
-    const status = buildPersonStatus(user, now);
+  const statuses = await Promise.all(users.map((user) => buildPersonStatus(user, now)));
+  users.forEach((user, i) => {
+    const status = statuses[i];
     responseData.data[user.display_name] = status;
     if (status.current && coverage[status.current.code] !== undefined) {
       coverage[status.current.code] += 1;
@@ -90,13 +93,14 @@ router.get('/status', requireAuth, (req, res) => {
 
 // Powers the swap-request form: shifts the logged-in user could offer, and
 // the colleagues they could offer them to.
-router.get('/my-shifts', requireAuth, (req, res) => {
-  const shifts = shiftsModel.getUpcomingShiftsForUser(req.authUserId, nowIso());
+router.get('/my-shifts', requireAuth, async (req, res) => {
+  const shifts = await shiftsModel.getUpcomingShiftsForUser(req.authUserId, nowIso());
   res.json(shifts.map((s) => ({ id: s.id, type: s.type, start: s.start_at, end: s.end_at })));
 });
 
-router.get('/colleagues', requireAuth, (req, res) => {
-  const colleagues = usersModel.listUsers({ activeOnly: true, role: 'member' })
+router.get('/colleagues', requireAuth, async (req, res) => {
+  const users = await usersModel.listUsers({ activeOnly: true, role: 'member' });
+  const colleagues = users
     .filter((u) => u.id !== req.authUserId)
     .map((u) => ({ id: u.id, name: u.display_name }));
   res.json(colleagues);

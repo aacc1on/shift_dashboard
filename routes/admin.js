@@ -7,10 +7,10 @@ const shiftsModel = require('../models/shifts');
 const { requireAuth, requireLead } = require('../middleware/auth');
 const { SHIFT_META, defaultAdminDateRange } = require('../lib/shift-times');
 
-router.get('/', requireAuth, (req, res) => {
-  const users = usersModel.listUsers({ activeOnly: true, role: 'member' });
+router.get('/', requireAuth, async (req, res) => {
+  const users = await usersModel.listUsers({ activeOnly: true, role: 'member' });
   const dates = defaultAdminDateRange();
-  const gridByUserId = shiftsModel.getGridForDates(dates);
+  const gridByUserId = await shiftsModel.getGridForDates(dates);
 
   const schedule = {};
   dates.forEach((d) => {

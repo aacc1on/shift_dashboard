@@ -13,7 +13,7 @@ Shift-handover dashboard for a 24/7 SOC (or any shift-based) team — live duty 
 - **Broadcast announcements** — a lead can flash a message across every dashboard.
 - **User management** — add/remove team members, reset passwords, activate/deactivate, all from the UI.
 - **Network diagrams** — a shared canvas (drag-and-drop nodes, connect them) for sketching network topology, saved alongside everything else.
-- **Automatic backups** — a safe hot-copy of the database on every boot and daily thereafter, plus an optional off-site sync of documents + the database to Google Drive.
+- **Automatic backups** — a full row-level snapshot of the database on every boot and daily thereafter, plus an optional off-site sync of documents + the database to Google Drive.
 
 ## Getting started
 
@@ -30,7 +30,10 @@ A fresh install creates exactly **one** account — no demo data, no sample team
 
 ## Stack
 
-Node.js, Express, EJS, SQLite (`better-sqlite3`).
+Node.js, Express, EJS, SQLite — via `@libsql/client`, which speaks to either
+a plain local `.db` file (the default, zero setup) or a remote [Turso](https://turso.tech)
+database with the exact same code, which is what makes the free Render
+deployment below possible (see "Deploying for free").
 
 ## Docker
 
@@ -38,7 +41,7 @@ Node.js, Express, EJS, SQLite (`better-sqlite3`).
 docker compose up --build
 ```
 
-Uses the included `Dockerfile` + `docker-compose.yml`. `./data` is mounted as a volume, so the database survives container rebuolds/restarts the same way it does on a bare-metal install.
+Uses the included `Dockerfile` + `docker-compose.yml`. `./data` is mounted as a volume, so the database survives container rebuilds/restarts the same way it does on a bare-metal install.
 
 ---
 
@@ -109,12 +112,16 @@ is wrapping the same `npm start` command as a Windows Service with
 
 Two layers, both automatic, no configuration required for the first one:
 
-1. **Local snapshots** — a consistent hot-copy of `data/baton.db` is taken
-   on every server boot and once every 24 hours after that, kept in
-   `data/backups/` (last 30 kept, older ones pruned automatically). See
-   `lib/backup.js`. Since `data/` isn't in git, remember these backups live
-   only on this machine — copy `data/backups/` elsewhere periodically if you
-   want protection against the whole machine failing.
+1. **Local snapshots** — a full row-level dump of every table (JSON, human-
+   readable) is written on every server boot and once every 24 hours after
+   that, kept in `data/backups/` (last 30 kept, older ones pruned
+   automatically). See `lib/backup.js` — this works the same way whether the
+   database is a local file or a remote Turso database (see "Deploying for
+   free" below), since it reads through the same client either way rather
+   than copying a file that might not exist locally. Since `data/` isn't in
+   git, remember these backups live only on this machine — copy
+   `data/backups/` elsewhere periodically if you want protection against the
+   whole machine failing.
 2. **Google Drive backup** (optional, off-site) — see below.
 
 A lead can also trigger an on-demand backup of both kinds from **Admin →
@@ -125,7 +132,7 @@ sidebar → Backup Now**, and see when the last one ran.
 Mirrors every document (as readable `.md` files) plus the latest database
 snapshot into a "SOCGrid Backups" folder in a Google Drive account of your
 choosing — so if this machine is ever lost, the documents (and, from the
-`.db` file, everything else) are recoverable from Drive. It only ever
+`.json` snapshot, everything else) are recoverable from Drive. It only ever
 requests access to files it creates itself (the `drive.file` OAuth scope) —
 never the rest of that Drive account.
 
@@ -191,11 +198,12 @@ local backups only — nothing breaks, and **Admin → Backup Now** will tell
 you Drive isn't connected.
 
 **What ends up in Drive:** a "SOCGrid Backups" folder containing
-`database-latest.db` (a full snapshot, overwritten in place each run — open
-its revision history in Drive's UI to see older versions) and a
-`documents/` subfolder with one `.md` file per document (title, tags,
-visibility, author in the frontmatter, then its content) — browsable and
-readable directly in Drive, not just a restorable blob.
+`database-latest.json` (the full row-level snapshot described above,
+overwritten in place each run — open its revision history in Drive's UI to
+see older versions) and a `documents/` subfolder with one `.md` file per
+document (title, tags, visibility, author in the frontmatter, then its
+content) — browsable and readable directly in Drive, not just a restorable
+blob.
 
 ## Network diagrams
 
@@ -208,15 +216,88 @@ separate named diagrams as you want (e.g. "Office LAN", "DMZ", "VPN
 topology") — pick one from the sidebar, edit, **Save**. Anyone on the team
 can edit; only the diagram's author or a lead can delete one.
 
-## Deployment (Docker / PaaS)
+## Deploying for free (Render + Turso)
 
-Ships with a `Dockerfile` for Render or any Docker-based PaaS. See
-`.env.example` for environment variables — `DATA_DIR` for where the SQLite
-database lives (point it at a persistent volume in production), `SOC_USER`/
-`SOC_PASS` for the initial account, `OPENROUTER_API_KEY` to enable
-AI-assisted schedule generation (falls back to a deterministic fair-rotation
-generator without it), and `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` for the
-Google Drive backup described above.
+Render's free tier has no persistent disk — anything written to the
+filesystem is wiped on every deploy and periodically otherwise. That's a
+dealbreaker for a plain local SQLite file, but not for this app: point it at
+a [Turso](https://turso.tech) database instead (a hosted, SQLite-compatible
+database with a generous free tier — 500 databases, several GB of storage)
+and the app talks to it exactly like it would a local file, over the
+network, so Render's ephemeral disk stops mattering. This is the free,
+fully-hosted setup — no server of your own to maintain.
+
+### 1. Create a Turso database
+
+Easiest via their CLI:
+
+```
+curl -sSfL https://get.tur.so/install.sh | bash
+turso auth signup          # opens a browser to sign in/sign up (free)
+turso db create socgrid
+turso db show socgrid --url        # -> libsql://socgrid-yourname.turso.io
+turso db tokens create socgrid     # -> a long auth token
+```
+
+(Or use the [Turso web dashboard](https://app.turso.tech) instead of the CLI
+— create a database there and it shows you the same URL + token to copy.)
+
+Keep both values — the database URL and the token — you'll paste them into
+Render as environment variables next. Nothing needs to be created inside the
+database by hand; the app creates its own tables on first boot, same as it
+does locally.
+
+### 2. Create the Render service
+
+1. Push this repo to GitHub (if it isn't already).
+2. On [Render](https://render.com), **New → Web Service**, connect the repo.
+3. Environment: **Docker** (it'll pick up the included `Dockerfile`
+   automatically). Instance type: **Free** is enough.
+4. Under **Environment Variables**, add:
+
+   | Key | Value |
+   |---|---|
+   | `TURSO_DATABASE_URL` | the `libsql://...` URL from step 1 |
+   | `TURSO_AUTH_TOKEN` | the token from step 1 |
+   | `SESSION_SECRET` | any long random string |
+   | `SOC_USER` | the username for the first account (optional, defaults to `admin`) |
+   | `SOC_PASS` | its password (optional, defaults to `soc2026` — **do set this** so you're not relying on the default in a public deployment) |
+
+   `OPENROUTER_API_KEY`/`OPENROUTER_MODEL` and `GOOGLE_CLIENT_ID`/
+   `GOOGLE_CLIENT_SECRET` are optional, same as anywhere else (see the
+   Google Drive section above — the one-time `google-auth-setup.js` step
+   needs to be run against the same Turso database, so it's easiest to run
+   it locally with `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` in your local
+   `.env` pointed at the same database before deploying, then remove them
+   locally again if you want local dev back on a plain file).
+
+5. Deploy. Render builds the Docker image and starts it; the app connects to
+   Turso on boot, creates its schema there, and logs the first account's
+   credentials — check the Render logs the first time to grab them, since
+   there's no local console here.
+
+### 3. Redeploying
+
+Push to the branch Render is watching (or click **Manual Deploy**) — same as
+any Render app. Because the database lives in Turso, not on Render's disk,
+a redeploy (or Render restarting the free instance after inactivity) never
+touches your data — this is the whole reason Turso is in the picture.
+
+### Free-tier caveat
+
+Render's free web services spin down after a period of no traffic and take
+a few seconds to wake back up on the next request — fine for an internal
+team tool, just don't expect it to feel instant after being idle. Turso's
+free tier has its own (generous) usage limits; check
+[turso.tech/pricing](https://turso.tech/pricing) if the team grows a lot.
+
+### Everything else (Docker Compose, a plain VPS, etc.)
+
+The `Dockerfile` works anywhere Docker runs. Without `TURSO_DATABASE_URL`
+set, the container falls back to a local file under `DATA_DIR` — fine as
+long as that path is a persistent volume (see `docker-compose.yml`, which
+does exactly this for a self-hosted Docker setup where the disk *isn't*
+ephemeral). See `.env.example` for the full list of environment variables.
 
 ## License
 

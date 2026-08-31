@@ -1,6 +1,6 @@
 'use strict';
 
-const db = require('../db');
+const { get, all, run } = require('../db');
 const shiftsModel = require('./shifts');
 
 const REPORT_SELECT = `
@@ -18,29 +18,30 @@ function parseRow(row) {
   return { ...row, open_items: JSON.parse(row.open_items || '[]') };
 }
 
-function getReportForShift(shiftId) {
-  return parseRow(db.prepare(`${REPORT_SELECT} WHERE r.shift_id = ?`).get(shiftId));
+async function getReportForShift(shiftId) {
+  return parseRow(await get(`${REPORT_SELECT} WHERE r.shift_id = ?`, shiftId));
 }
 
-function getReportById(id) {
-  return parseRow(db.prepare(`${REPORT_SELECT} WHERE r.id = ?`).get(id));
+async function getReportById(id) {
+  return parseRow(await get(`${REPORT_SELECT} WHERE r.id = ?`, id));
 }
 
 // The gate: this is the only place a shift's status is ever set to 'closed',
 // and it can only happen by filing the report. One report per shift.
-function createReport({ shiftId, authorId, whatDone, unfinished, openItems }) {
-  const existing = db.prepare('SELECT id FROM reports WHERE shift_id = ?').get(shiftId);
+async function createReport({ shiftId, authorId, whatDone, unfinished, openItems }) {
+  const existing = await get('SELECT id FROM reports WHERE shift_id = ?', shiftId);
   if (existing) throw new Error('A report has already been filed for this shift.');
 
-  db.prepare(
-    'INSERT INTO reports (shift_id, author_id, what_done, unfinished, open_items) VALUES (?, ?, ?, ?, ?)'
-  ).run(shiftId, authorId, whatDone || '', unfinished || '', JSON.stringify(openItems || []));
+  await run(
+    'INSERT INTO reports (shift_id, author_id, what_done, unfinished, open_items) VALUES (?, ?, ?, ?, ?)',
+    shiftId, authorId, whatDone || '', unfinished || '', JSON.stringify(openItems || [])
+  );
 
-  shiftsModel.setShiftStatus(shiftId, 'closed');
+  await shiftsModel.setShiftStatus(shiftId, 'closed');
   return getReportForShift(shiftId);
 }
 
-function listReports({ authorId = null, q = null, from = null, to = null, limit = 100 } = {}) {
+async function listReports({ authorId = null, q = null, from = null, to = null, limit = 100 } = {}) {
   const clauses = [];
   const params = [];
   if (authorId) { clauses.push('r.author_id = ?'); params.push(authorId); }
@@ -53,7 +54,8 @@ function listReports({ authorId = null, q = null, from = null, to = null, limit 
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   params.push(limit);
-  return db.prepare(`${REPORT_SELECT} ${where} ORDER BY s.start_at DESC LIMIT ?`).all(...params).map(parseRow);
+  const rows = await all(`${REPORT_SELECT} ${where} ORDER BY s.start_at DESC LIMIT ?`, ...params);
+  return rows.map(parseRow);
 }
 
 // Is this shift within the reminder window (or already past end) and still

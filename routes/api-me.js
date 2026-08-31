@@ -20,14 +20,14 @@ function publicSelf(u) {
   };
 }
 
-router.get('/', (req, res) => {
-  const user = usersModel.getUserById(req.authUserId);
+router.get('/', async (req, res) => {
+  const user = await usersModel.getUserById(req.authUserId);
   res.json(publicSelf(user));
 });
 
 // Self-service: anyone can set their own avatar/bio/display name — not role,
 // username, or active status, those stay lead-controlled (User Management).
-router.put('/', (req, res) => {
+router.put('/', async (req, res) => {
   const { avatarEmoji, bio, displayName } = req.body || {};
   const fields = {};
 
@@ -46,7 +46,7 @@ router.put('/', (req, res) => {
     fields.display_name = trimmed;
   }
 
-  const updated = usersModel.updateUser(req.authUserId, fields);
+  const updated = await usersModel.updateUser(req.authUserId, fields);
   res.json(publicSelf(updated));
 });
 
@@ -54,9 +54,9 @@ router.put('/', (req, res) => {
 // "reset to a random temp password" flow. Requires the current password so
 // a hijacked-but-not-fully-compromised session can't silently lock the
 // real owner out.
-router.put('/password', (req, res) => {
+router.put('/password', async (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
-  const user = usersModel.getUserById(req.authUserId);
+  const user = await usersModel.getUserById(req.authUserId);
 
   if (!currentPassword || !verifyPassword(currentPassword, user.password_hash)) {
     return res.status(400).json({ error: 'Current password is incorrect.' });
@@ -65,7 +65,7 @@ router.put('/password', (req, res) => {
     return res.status(400).json({ error: 'New password must be at least 6 characters.' });
   }
 
-  usersModel.updateUser(req.authUserId, { password_hash: hashPassword(String(newPassword)) });
+  await usersModel.updateUser(req.authUserId, { password_hash: hashPassword(String(newPassword)) });
   res.json({ ok: true });
 });
 

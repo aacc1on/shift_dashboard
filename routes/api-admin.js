@@ -15,10 +15,10 @@ const AUDIT_LOG_PATH = path.join(__dirname, '..', 'audit.log');
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-router.get('/', requireAuth, (req, res) => {
-  const users = usersModel.listUsers({ activeOnly: true, role: 'member' });
+router.get('/', requireAuth, async (req, res) => {
+  const users = await usersModel.listUsers({ activeOnly: true, role: 'member' });
   const dates = defaultAdminDateRange();
-  const gridByUserId = shiftsModel.getGridForDates(dates);
+  const gridByUserId = await shiftsModel.getGridForDates(dates);
 
   const schedule = {};
   dates.forEach((d) => {
@@ -66,21 +66,21 @@ router.post('/', requireLead, async (req, res) => {
     const createdAccounts = [];
     const resolved = []; // [{ id, name }] final, in the same order as peopleInput
 
-    peopleInput.forEach((p) => {
+    for (const p of peopleInput) {
       if (p.id != null) {
-        const existing = usersModel.getUserById(p.id);
+        const existing = await usersModel.getUserById(p.id);
         if (!existing) throw new Error(`Operator id ${p.id} no longer exists — reload and try again.`);
         // The schedule roster only ever manages member accounts — leads are
         // account/permission holders, not something a schedule save can touch.
         if (existing.role !== 'member') throw new Error(`"${existing.display_name}" is a lead account and can't be edited from the schedule roster.`);
         if (existing.display_name !== p.name || !existing.active) {
-          usersModel.updateUser(p.id, { display_name: p.name, active: 1 });
+          await usersModel.updateUser(p.id, { display_name: p.name, active: 1 });
         }
         resolved.push({ id: p.id, name: p.name });
       } else {
-        const username = usersModel.suggestUsername(p.name);
+        const username = await usersModel.suggestUsername(p.name);
         const tempPassword = generateTempPassword();
-        const user = usersModel.createUser({
+        const user = await usersModel.createUser({
           username,
           passwordHash: hashPassword(tempPassword),
           displayName: p.name,
@@ -90,25 +90,26 @@ router.post('/', requireLead, async (req, res) => {
         createdAccounts.push({ username, tempPassword, displayName: p.name });
         resolved.push({ id: user.id, name: p.name });
       }
-    });
+    }
 
     // Deactivate members previously active who are no longer in the submitted
     // roster. Scoped to role='member' so this can never touch a lead account
     // (including the currently logged-in lead saving this very request).
     const keepIds = new Set(resolved.map((r) => r.id));
-    usersModel.listUsers({ activeOnly: true, role: 'member' }).forEach((u) => {
-      if (!keepIds.has(u.id)) usersModel.updateUser(u.id, { active: 0 });
-    });
+    const activeMembers = await usersModel.listUsers({ activeOnly: true, role: 'member' });
+    for (const u of activeMembers) {
+      if (!keepIds.has(u.id)) await usersModel.updateUser(u.id, { active: 0 });
+    }
 
     // Upsert exactly the submitted (date, person) cells — never touches shifts
     // for dates outside this payload.
-    dates.forEach((date) => {
+    for (const date of dates) {
       const row = payload.schedule[date] || {};
-      resolved.forEach((r) => {
+      for (const r of resolved) {
         const code = row[r.name] || 'X';
-        shiftsModel.upsertShiftForUserOnDate(r.id, date, code);
-      });
-    });
+        await shiftsModel.upsertShiftForUserOnDate(r.id, date, code);
+      }
+    }
 
     const who = req.authUser || 'admin';
     await fs.appendFile(
@@ -141,9 +142,9 @@ router.post('/autogenerate', requireLead, async (req, res) => {
     // everyone else's real values are echoed back unchanged so the client's
     // merge (schedule[date] = result) never wipes anything out.
     const nameToUser = {};
-    usersModel.listUsers({ role: 'member' }).forEach((u) => { nameToUser[u.display_name] = u; });
+    (await usersModel.listUsers({ role: 'member' })).forEach((u) => { nameToUser[u.display_name] = u; });
 
-    const existingRows = shiftsModel.getShiftRowsForDates(dates);
+    const existingRows = await shiftsModel.getShiftRowsForDates(dates);
     const userIdsWithData = new Set(existingRows.map((r) => r.user_id));
 
     const openNames = people.filter((name) => {
@@ -152,7 +153,7 @@ router.post('/autogenerate', requireLead, async (req, res) => {
     });
     const fixedNames = people.filter((name) => !openNames.includes(name));
 
-    const gridByUserId = shiftsModel.getGridForDates(dates);
+    const gridByUserId = await shiftsModel.getGridForDates(dates);
     const buildFixedRow = (date) => {
       const row = {};
       fixedNames.forEach((name) => {

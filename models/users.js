@@ -1,32 +1,33 @@
 'use strict';
 
-const db = require('../db');
+const { get, all, run } = require('../db');
 
-function listUsers({ activeOnly = false, role = null } = {}) {
+async function listUsers({ activeOnly = false, role = null } = {}) {
   const clauses = [];
   const params = [];
   if (activeOnly) clauses.push('active = 1');
   if (role) { clauses.push('role = ?'); params.push(role); }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
-  return db.prepare(`SELECT * FROM users ${where} ORDER BY display_name`).all(...params);
+  return all(`SELECT * FROM users ${where} ORDER BY display_name`, ...params);
 }
 
-function getUserByUsername(username) {
-  return db.prepare('SELECT * FROM users WHERE username = ?').get(String(username || '').trim().toLowerCase());
+async function getUserByUsername(username) {
+  return get('SELECT * FROM users WHERE username = ?', String(username || '').trim().toLowerCase());
 }
 
-function getUserById(id) {
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+async function getUserById(id) {
+  return get('SELECT * FROM users WHERE id = ?', id);
 }
 
-function createUser({ username, passwordHash, displayName, role = 'member', active = 1 }) {
-  const info = db.prepare(
-    'INSERT INTO users (username, password_hash, display_name, role, active) VALUES (?, ?, ?, ?, ?)'
-  ).run(String(username).trim().toLowerCase(), passwordHash, String(displayName).trim(), role, active ? 1 : 0);
+async function createUser({ username, passwordHash, displayName, role = 'member', active = 1 }) {
+  const info = await run(
+    'INSERT INTO users (username, password_hash, display_name, role, active) VALUES (?, ?, ?, ?, ?)',
+    String(username).trim().toLowerCase(), passwordHash, String(displayName).trim(), role, active ? 1 : 0
+  );
   return getUserById(info.lastInsertRowid);
 }
 
-function updateUser(id, fields) {
+async function updateUser(id, fields) {
   const allowed = ['display_name', 'role', 'active', 'password_hash', 'avatar_emoji', 'bio'];
   const sets = [];
   const values = [];
@@ -38,7 +39,7 @@ function updateUser(id, fields) {
   }
   if (!sets.length) return getUserById(id);
   values.push(id);
-  db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+  await run(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, ...values);
   return getUserById(id);
 }
 
@@ -46,31 +47,38 @@ function updateUser(id, fields) {
 // documents, chat) — used to refuse a hard delete once there's real history
 // to lose, steering toward deactivate instead. Zero across the board (a
 // never-used account) is the only case a hard delete is offered for.
-function getOwnedDataCounts(id) {
+async function getOwnedDataCounts(id) {
+  const [shifts, swaps, reports, documents, messages] = await Promise.all([
+    get('SELECT COUNT(*) n FROM shifts WHERE user_id = ?', id),
+    get('SELECT COUNT(*) n FROM swaps WHERE requester_id = ? OR target_id = ?', id, id),
+    get('SELECT COUNT(*) n FROM reports WHERE author_id = ?', id),
+    get('SELECT COUNT(*) n FROM documents WHERE author_id = ?', id),
+    get('SELECT COUNT(*) n FROM messages WHERE author_id = ? OR recipient_id = ?', id, id)
+  ]);
   return {
-    shifts: db.prepare('SELECT COUNT(*) n FROM shifts WHERE user_id = ?').get(id).n,
-    swaps: db.prepare('SELECT COUNT(*) n FROM swaps WHERE requester_id = ? OR target_id = ?').get(id, id).n,
-    reports: db.prepare('SELECT COUNT(*) n FROM reports WHERE author_id = ?').get(id).n,
-    documents: db.prepare('SELECT COUNT(*) n FROM documents WHERE author_id = ?').get(id).n,
-    messages: db.prepare('SELECT COUNT(*) n FROM messages WHERE author_id = ? OR recipient_id = ?').get(id, id).n
+    shifts: shifts.n,
+    swaps: swaps.n,
+    reports: reports.n,
+    documents: documents.n,
+    messages: messages.n
   };
 }
 
-function deleteUser(id) {
-  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+async function deleteUser(id) {
+  await run('DELETE FROM users WHERE id = ?', id);
 }
 
-function usernameExists(username) {
-  return !!getUserByUsername(username);
+async function usernameExists(username) {
+  return !!(await getUserByUsername(username));
 }
 
 // Derives a unique lowercase username from a display name (e.g. "Areg" -> "areg",
 // falling back to "areg2", "areg3", ... on collision).
-function suggestUsername(displayName) {
+async function suggestUsername(displayName) {
   const base = String(displayName).trim().toLowerCase().replace(/[^a-z0-9]+/g, '') || 'user';
   let candidate = base;
   let n = 2;
-  while (usernameExists(candidate)) {
+  while (await usernameExists(candidate)) {
     candidate = `${base}${n}`;
     n++;
   }

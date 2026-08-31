@@ -1,6 +1,6 @@
 'use strict';
 
-const db = require('../db');
+const { get, all, run } = require('../db');
 
 const MESSAGE_SELECT = `
   SELECT m.id, m.content, m.created_at, m.author_id, m.recipient_id,
@@ -11,48 +11,48 @@ const MESSAGE_SELECT = `
 
 // ---- Team channel (recipient_id IS NULL, visible to everyone) ----
 
-function listTeamMessages(limit = 100) {
-  const rows = db.prepare(`${MESSAGE_SELECT} WHERE m.recipient_id IS NULL ORDER BY m.id DESC LIMIT ?`).all(limit);
+async function listTeamMessages(limit = 100) {
+  const rows = await all(`${MESSAGE_SELECT} WHERE m.recipient_id IS NULL ORDER BY m.id DESC LIMIT ?`, limit);
   return rows.reverse();
 }
 
-function listTeamSince(sinceId) {
-  return db.prepare(`${MESSAGE_SELECT} WHERE m.recipient_id IS NULL AND m.id > ? ORDER BY m.id ASC`).all(sinceId);
+async function listTeamSince(sinceId) {
+  return all(`${MESSAGE_SELECT} WHERE m.recipient_id IS NULL AND m.id > ? ORDER BY m.id ASC`, sinceId);
 }
 
-function createTeamMessage({ authorId, content }) {
-  const info = db.prepare('INSERT INTO messages (author_id, recipient_id, content) VALUES (?, NULL, ?)').run(authorId, content);
-  return db.prepare(`${MESSAGE_SELECT} WHERE m.id = ?`).get(info.lastInsertRowid);
+async function createTeamMessage({ authorId, content }) {
+  const info = await run('INSERT INTO messages (author_id, recipient_id, content) VALUES (?, NULL, ?)', authorId, content);
+  return get(`${MESSAGE_SELECT} WHERE m.id = ?`, info.lastInsertRowid);
 }
 
 // ---- Direct messages (private, only the two participants) ----
 
-function listConversation(userA, userB, limit = 100) {
-  const rows = db.prepare(`
+async function listConversation(userA, userB, limit = 100) {
+  const rows = await all(`
     ${MESSAGE_SELECT}
     WHERE (m.author_id = ? AND m.recipient_id = ?) OR (m.author_id = ? AND m.recipient_id = ?)
     ORDER BY m.id DESC LIMIT ?
-  `).all(userA, userB, userB, userA, limit);
+  `, userA, userB, userB, userA, limit);
   return rows.reverse();
 }
 
-function listConversationSince(userA, userB, sinceId) {
-  return db.prepare(`
+async function listConversationSince(userA, userB, sinceId) {
+  return all(`
     ${MESSAGE_SELECT}
     WHERE ((m.author_id = ? AND m.recipient_id = ?) OR (m.author_id = ? AND m.recipient_id = ?)) AND m.id > ?
     ORDER BY m.id ASC
-  `).all(userA, userB, userB, userA, sinceId);
+  `, userA, userB, userB, userA, sinceId);
 }
 
-function createDirectMessage({ authorId, recipientId, content }) {
-  const info = db.prepare('INSERT INTO messages (author_id, recipient_id, content) VALUES (?, ?, ?)').run(authorId, recipientId, content);
-  return db.prepare(`${MESSAGE_SELECT} WHERE m.id = ?`).get(info.lastInsertRowid);
+async function createDirectMessage({ authorId, recipientId, content }) {
+  const info = await run('INSERT INTO messages (author_id, recipient_id, content) VALUES (?, ?, ?)', authorId, recipientId, content);
+  return get(`${MESSAGE_SELECT} WHERE m.id = ?`, info.lastInsertRowid);
 }
 
 // Everyone `userId` has exchanged a DM with, most-recent-conversation-first,
 // each with a preview of the last message — for the chat sidebar.
-function listConversationsFor(userId) {
-  const rows = db.prepare(`
+async function listConversationsFor(userId) {
+  const rows = await all(`
     SELECT
       CASE WHEN m.author_id = ? THEN m.recipient_id ELSE m.author_id END AS other_id,
       m.content AS last_content,
@@ -63,12 +63,12 @@ function listConversationsFor(userId) {
     WHERE m.recipient_id IS NOT NULL AND (m.author_id = ? OR m.recipient_id = ?)
     GROUP BY other_id
     ORDER BY last_id DESC
-  `).all(userId, userId, userId);
+  `, userId, userId, userId);
 
   if (!rows.length) return [];
   const otherIds = rows.map((r) => r.other_id);
   const placeholders = otherIds.map(() => '?').join(',');
-  const users = db.prepare(`SELECT id, display_name, avatar_emoji, role FROM users WHERE id IN (${placeholders})`).all(...otherIds);
+  const users = await all(`SELECT id, display_name, avatar_emoji, role FROM users WHERE id IN (${placeholders})`, ...otherIds);
   const userMap = new Map(users.map((u) => [u.id, u]));
 
   return rows

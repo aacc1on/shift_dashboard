@@ -9,7 +9,7 @@
     "dev": "nodemon app.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
+    "@libsql/client": "^0.17.4",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "ejs": "^3.1.9",

@@ -1,11 +1,12 @@
 'use strict';
 
-const db = require('../db');
+const { get, all, run } = require('../db');
 
-function createSwapRequest({ shiftId, requesterId, targetId }) {
-  const info = db.prepare(
-    'INSERT INTO swaps (shift_id, requester_id, target_id) VALUES (?, ?, ?)'
-  ).run(shiftId, requesterId, targetId);
+async function createSwapRequest({ shiftId, requesterId, targetId }) {
+  const info = await run(
+    'INSERT INTO swaps (shift_id, requester_id, target_id) VALUES (?, ?, ?)',
+    shiftId, requesterId, targetId
+  );
   return getSwapById(info.lastInsertRowid);
 }
 
@@ -21,34 +22,31 @@ const SWAP_SELECT = `
   JOIN users tu ON tu.id = s.target_id
 `;
 
-function getSwapById(id) {
-  return db.prepare(`${SWAP_SELECT} WHERE s.id = ?`).get(id);
+async function getSwapById(id) {
+  return get(`${SWAP_SELECT} WHERE s.id = ?`, id);
 }
 
 // Swaps visible to a given user: ones they requested, ones directed at them,
 // or (for leads) everything, for oversight.
-function listSwapsForUser(userId, { isLead = false } = {}) {
+async function listSwapsForUser(userId, { isLead = false } = {}) {
   if (isLead) {
-    return db.prepare(`${SWAP_SELECT} ORDER BY s.created_at DESC`).all();
+    return all(`${SWAP_SELECT} ORDER BY s.created_at DESC`);
   }
-  return db.prepare(
-    `${SWAP_SELECT} WHERE s.requester_id = ? OR s.target_id = ? ORDER BY s.created_at DESC`
-  ).all(userId, userId);
+  return all(`${SWAP_SELECT} WHERE s.requester_id = ? OR s.target_id = ? ORDER BY s.created_at DESC`, userId, userId);
 }
 
-function resolveSwap(id, status) {
-  db.prepare(
-    "UPDATE swaps SET status = ?, resolved_at = datetime('now') WHERE id = ?"
-  ).run(status, id);
+async function resolveSwap(id, status) {
+  await run("UPDATE swaps SET status = ?, resolved_at = datetime('now') WHERE id = ?", status, id);
   return getSwapById(id);
 }
 
 // Any other pending swap requests referencing this exact shift become moot
 // once one of them resolves (the shift can only move once).
-function cancelOtherPendingSwapsForShift(shiftId, exceptSwapId) {
-  db.prepare(
-    "UPDATE swaps SET status = 'cancelled', resolved_at = datetime('now') WHERE shift_id = ? AND id != ? AND status = 'pending'"
-  ).run(shiftId, exceptSwapId);
+async function cancelOtherPendingSwapsForShift(shiftId, exceptSwapId) {
+  await run(
+    "UPDATE swaps SET status = 'cancelled', resolved_at = datetime('now') WHERE shift_id = ? AND id != ? AND status = 'pending'",
+    shiftId, exceptSwapId
+  );
 }
 
 module.exports = {

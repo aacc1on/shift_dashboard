@@ -44,24 +44,28 @@ function parseAndVerifySession(rawCookie) {
 
 // Loads the full user record for a verified session, rejecting sessions for
 // accounts that were deactivated after the cookie was issued.
-function loadSessionUser(req) {
+async function loadSessionUser(req) {
   const parsed = parseAndVerifySession(req.cookies && req.cookies.soc_session);
   if (!parsed) return null;
-  const user = usersModel.getUserByUsername(parsed.username);
+  const user = await usersModel.getUserByUsername(parsed.username);
   if (!user || !user.active) return null;
   return user;
 }
 
-function requireAuth(req, res, next) {
-  const user = loadSessionUser(req);
-  if (user) {
-    req.authUser = user.username;
-    req.authRole = user.role;
-    req.authUserId = user.id;
-    return next();
+async function requireAuth(req, res, next) {
+  try {
+    const user = await loadSessionUser(req);
+    if (user) {
+      req.authUser = user.username;
+      req.authRole = user.role;
+      req.authUserId = user.id;
+      return next();
+    }
+    const redirect = encodeURIComponent(req.originalUrl);
+    res.redirect(`/login?redirect=${redirect}`);
+  } catch (err) {
+    next(err);
   }
-  const redirect = encodeURIComponent(req.originalUrl);
-  res.redirect(`/login?redirect=${redirect}`);
 }
 
 function requireLead(req, res, next) {
@@ -73,25 +77,29 @@ function requireLead(req, res, next) {
   });
 }
 
-function handleLogin(req, res) {
-  const { username, password, redirect } = req.body;
-  const user = usersModel.getUserByUsername(username);
+async function handleLogin(req, res, next) {
+  try {
+    const { username, password, redirect } = req.body;
+    const user = await usersModel.getUserByUsername(username);
 
-  if (user && user.active && verifyPassword(password, user.password_hash)) {
-    const token = createSessionCookie(user.username);
-    res.cookie('soc_session', token, {
-      httpOnly: true,
-      maxAge: SESSION_TTL_MS,
-      sameSite: 'lax'
-    });
-    // No explicit redirect (e.g. logging in from /login directly, not bounced
-    // off a protected page): leads land on the management panel, everyone
-    // else just gets the dashboard.
-    const defaultLanding = user.role === 'lead' ? '/admin' : '/';
-    return res.redirect(redirect || defaultLanding);
+    if (user && user.active && verifyPassword(password, user.password_hash)) {
+      const token = createSessionCookie(user.username);
+      res.cookie('soc_session', token, {
+        httpOnly: true,
+        maxAge: SESSION_TTL_MS,
+        sameSite: 'lax'
+      });
+      // No explicit redirect (e.g. logging in from /login directly, not bounced
+      // off a protected page): leads land on the management panel, everyone
+      // else just gets the dashboard.
+      const defaultLanding = user.role === 'lead' ? '/admin' : '/';
+      return res.redirect(redirect || defaultLanding);
+    }
+
+    res.redirect(`/login?error=1&redirect=${encodeURIComponent(redirect || '')}`);
+  } catch (err) {
+    next(err);
   }
-
-  res.redirect(`/login?error=1&redirect=${encodeURIComponent(redirect || '')}`);
 }
 
 function handleLogout(req, res) {
@@ -99,8 +107,8 @@ function handleLogout(req, res) {
   res.redirect('/login');
 }
 
-function isAuthenticated(req) {
-  return !!loadSessionUser(req);
+async function isAuthenticated(req) {
+  return !!(await loadSessionUser(req));
 }
 
 module.exports = { requireAuth, requireLead, handleLogin, handleLogout, isAuthenticated };
